@@ -1,0 +1,23 @@
+apply plugin: 'scala'
+apply plugin: 'eclipse'
+
+//Define Java version for generated class files.
+targetCompatibility = 1.6
+
+repositories {    
+    maven {
+      url "http://download.osgeo.org/webdav/geotools/" 
+    }
+    mavenCentral()
+}
+
+dependencies {
+    compile project(":LaTiS")
+    
+	compile 'org.geotools:gt-geotiff:8.6'
+	compile 'org.geotools:gt-epsg-hsql:8.6'
+	
+    compile fileTree(dir: 'lib', include: '*.jar')
+	
+	
+}
