@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<tsml>
+  <dataset name="hdf_test">
+
+    <adapter class="latis.reader.tsml.NetcdfAdapter"
+             location="MYD10_L2.A2008032.0140.005.2008032210034.hdf"/>
+
+    <function epsg="3395" width="2708" height="4080">
+      <tuple>
+        <real name="longitude" origName="MOD_Swath_Snow/Geolocation_Fields/Longitude"/>
+        <real name="latitude" origName="MOD_Swath_Snow/Geolocation_Fields/Latitude"/>
+      </tuple>
+      
+      <integer name="snow_coverage" origName="MOD_Swath_Snow/Data_Fields/Snow_Cover"/>
+    </function>
+             
+  </dataset>
+</tsml>   
+

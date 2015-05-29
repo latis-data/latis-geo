@@ -12,7 +12,8 @@ repositories {
 }
 
 dependencies {
-    compile project(":LaTiS")
+    compile project(":latis")
+    compile project(":latis-netcdf")
     
 	compile 'org.geotools:gt-geotiff:8.6'
 	compile 'org.geotools:gt-epsg-hsql:8.6'

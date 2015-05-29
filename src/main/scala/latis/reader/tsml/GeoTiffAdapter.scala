@@ -10,46 +10,59 @@ import latis.data.Data
 import latis.metadata.Metadata
 import latis.reader.tsml.ml.VariableMl
 import latis.reader.tsml.ml.FunctionMl
+import org.geotools.referencing.CRS
+import com.typesafe.scalalogging.slf4j.Logging
 
-class GeoTiffAdapter(tsml: Tsml) extends IterativeAdapter[((Double, Double), Array[Int])](tsml) {
+class GeoTiffAdapter(tsml: Tsml) extends IterativeAdapter[((Double, Double), Array[Int])](tsml) with Logging{
   
-  val reader: GeoTiffReader = new GeoTiffReader(getUrl)
+  lazy val reader: GeoTiffReader = new GeoTiffReader(getUrl)
   
-  val coverage: GridCoverage2D = reader.read(null)
-  val transform: MathTransform2D = coverage.getGridGeometry.getGridToCRS2D
-  val raster: Raster = coverage.getRenderedImage.getData
+  lazy val coverage: GridCoverage2D = reader.read(null)
   
-  val crs = coverage.getCoordinateReferenceSystem2D
-  val height = raster.getHeight
-  val width = raster.getWidth
+  lazy val transform: MathTransform2D = coverage.getGridGeometry.getGridToCRS2D
+  lazy val raster: Raster = coverage.getRenderedImage.getData
   
+  //will be stored as metadata in the function
+  lazy val crs = coverage.getCoordinateReferenceSystem2D
+  lazy val height = raster.getHeight
+  lazy val width = raster.getWidth
+  
+  //indices used to access the raster data
   def indexes: Iterator[(Int, Int)] = {
-    val x = (0 until width).iterator
-    val y = (0 until height)
-    for(i <- x; j <- y) yield(i, j)
-  }
-    
-  def domain: Iterator[(Double, Double)] = {
-    indexes.map(xy => new Point2D.Double(xy._1, xy._2)).map(pt => transform.transform(pt, pt)).map(dom => (dom.getX, dom.getY))
+    val x = (0 until width)
+    val y = Iterator.range(0, height)
+    for(j <- y; i <- x) yield(i, j)
   }
   
-  def pixels: Iterator[Array[Int]] = {
-    indexes.map(xy => raster.getPixel(xy._1, xy._2, Array.ofDim[Int](raster.getNumBands)))
+  //get values for a sample domain for the given indices
+  val domain = (xy: (Int, Int)) => {
+    val pt = new Point2D.Double(xy._1, xy._2)
+    val dom = transform.transform(pt, pt)
+    (dom.getX, dom.getY)
+  }
+  
+  //get values for a sample range for the given indices
+  val pixels = (xy: (Int, Int)) => {
+    raster.getPixel(xy._1, xy._2, new Array[Int](raster.getNumBands))
   }
   
   def close = {
     reader.dispose
   }
   
+  //An awkward record type, but it works
   override def getRecordIterator: Iterator[((Double, Double), Array[Int])] = {
-    domain.zip(pixels)
+    indexes.map(xy => (domain(xy), pixels(xy)))
   }
   
   override def parseRecord(record: ((Double, Double), Array[Int])): Option[Map[String, Data]] = {
     val names = getOrigScalarNames
     val data = recordToData(record)
     
-    if(data.length != names.length) None
+    if(data.length != names.length) {
+      logger.debug("Invalid record: " + data.length + " values found for " + names.length + " variables")
+      None
+    }
     else Option(names.zip(data).toMap)
   }
   
@@ -61,26 +74,17 @@ class GeoTiffAdapter(tsml: Tsml) extends IterativeAdapter[((Double, Double), Arr
   /**
    * Adds metadata from tsml as well as the width, height, and coordinate reference system of the tiff
    */
-  override protected def makeMetadata(vml: VariableMl): Metadata = {
-    var atts = vml.getAttributes ++ vml.getMetadataAttributes
-    
-    def addImplicitName(name: String) = {
-      if (atts.contains("name")) atts.get("alias") match {
-        case Some(a) => atts = atts + ("alias" -> (a+","+name))
-        case None => atts = atts + ("alias" -> name)
-      } 
-      else atts = atts + ("name" -> name)
+  override protected def makeMetadata(vml: VariableMl): Metadata = vml match {
+    case fml: FunctionMl => {
+      val c = CRS.lookupEpsgCode(crs, true) match {
+        case c: Integer => ("epsg" -> c.toString)
+        case null => ("wkt" -> crs.toWKT)
+      }
+      val w = ("width" -> width.toString)
+      val h = ("height" -> height.toString)
+      super.makeMetadata(fml) + c + w + h
     }
-    if (vml.label == "time") addImplicitName("time")
-    if (vml.label == "index") addImplicitName("index")
-    
-    if(vml.isInstanceOf[FunctionMl]) {
-      atts += ("CRS" -> crs.toWKT)
-      atts += ("width" -> width.toString)
-      atts += ("height" -> height.toString)
-    }
-
-    Metadata(atts)
+    case _ => super.makeMetadata(vml)
   }
   
 }

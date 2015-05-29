@@ -1,10 +1,10 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <tsml>
 
-  <dataset name="tiff">
+  <dataset name="bwtiff">
 
     <adapter class="latis.reader.tsml.GeoTiffAdapter"
-             location="datasets/bw.tif"/>
+             location="tif/bw.tif"/>
              
     <function>
       <tuple>

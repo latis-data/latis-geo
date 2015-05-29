@@ -12,7 +12,7 @@ class TestGeoTiffWriter {
   def test {
     val file = new File("src/test/resources/tif/test.tif")
     try{
-      val ds = TsmlReader("src/test/resources/tsml/tiff.tsml").getDataset
+      val ds = TsmlReader("tiff.tsml").getDataset
       new GeoTiffWriter().writeFile(ds, file)
     }
     catch {

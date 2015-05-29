@@ -4,7 +4,7 @@
   <dataset name="tiff">
 
     <adapter class="latis.reader.tsml.GeoTiffAdapter"
-             location="datasets/little_tif.tif" />
+             location="tif/little_tif.tif" />
              
     <function>
       <tuple>
