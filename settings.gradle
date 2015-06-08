@@ -1,1 +1,1 @@
-includeFlat 'latis', 'latis-netcdf'
+includeFlat 'latis'
