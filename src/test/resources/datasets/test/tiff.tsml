@@ -1,23 +1,30 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<tsml>
 
-  <dataset name="tiff">
+<dataset name="tiff">
+  <adapter class="latis.reader.tsml.GeoTiffAdapter"
+           location="tif/little_tif.tif" />
+           
+  <function>
+    <tuple>
+      <real>
+        <metadata name="lat"/>
+      </real>
+      <real>
+        <metadata name="lon"/>
+      </real>
+    </tuple>
+    <tuple>
+      <integer>
+        <metadata name="red"/>
+      </integer>
+      <integer>
+        <metadata name="green"/>
+      </integer>
+      <integer>
+        <metadata name="blue"/>
+      </integer>
+    </tuple>
+  </function>
 
-    <adapter class="latis.reader.tsml.GeoTiffAdapter"
-             location="tif/little_tif.tif" />
-             
-    <function>
-      <tuple>
-        <real name="lat"/>
-        <real name="lon"/>
-      </tuple>
-      <tuple>
-        <integer name="red"/>
-        <integer name="green"/>
-        <integer name="blue"/>
-      </tuple>
-    </function>
+</dataset>
 
-  </dataset>
-
-</tsml>
