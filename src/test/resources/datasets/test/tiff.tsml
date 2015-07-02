@@ -1,6 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 
-<dataset name="tiff">
+<dataset>
+  <metadata name="tiff"/> 
   <adapter class="latis.reader.tsml.GeoTiffAdapter"
            location="tif/little_tif.tif" />
            
