@@ -7,7 +7,7 @@ import latis.writer.AsciiWriter
 
 class TestGeoTiffAdapter {
   
-  @Test
+  //@Test
   def testread {
     val ds = TsmlReader("tsml/tiff.tsml").getDataset
     //AsciiWriter.write(ds)

@@ -8,7 +8,7 @@ import latis.reader.tsml.TsmlReader
 
 class TestGeoTiffWriter {
   
-  @Test
+  //@Test
   def test {
     val file = new File("src/test/resources/tif/test.tif")
     try{

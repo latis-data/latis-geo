@@ -18,6 +18,8 @@ dependencies {
 	compile 'org.geotools:gt-epsg-hsql:8.6'
 	
     compile fileTree(dir: 'lib', include: '*.jar')
+    
+    testCompile 'junit:junit:4.+'
 	
 	
 }
