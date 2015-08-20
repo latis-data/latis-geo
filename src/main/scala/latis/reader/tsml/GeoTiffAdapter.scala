@@ -11,9 +11,9 @@ import latis.metadata.Metadata
 import latis.reader.tsml.ml.VariableMl
 import latis.reader.tsml.ml.FunctionMl
 import org.geotools.referencing.CRS
-import com.typesafe.scalalogging.slf4j.Logging
+import com.typesafe.scalalogging.LazyLogging
 
-class GeoTiffAdapter(tsml: Tsml) extends IterativeAdapter[((Double, Double), Array[Int])](tsml) with Logging{
+class GeoTiffAdapter(tsml: Tsml) extends IterativeAdapter[((Double, Double), Array[Int])](tsml) with LazyLogging{
   
   lazy val reader: GeoTiffReader = new GeoTiffReader(getUrl)
   
