@@ -1,13 +1,29 @@
-/build
-/dist
+# Eclipse
 /classes
 /bin
 .project
 .classpath
 .settings/
-.cache
-.gradle/
-*.DS_Store
-*.log
-*~
+.cache*
+/.externalToolBuilders
+/.scala_dependencies
+/.pydevproject
+*.pyc
 
+# Gradle
+/build
+.gradle/
+
+# Gulp
+/dist
+node_modules
+.tmp
+
+# Mac OSX
+*.DS_Store
+
+# Linux stale file handle
+.nfs*
+
+# Editor backups
+*~
