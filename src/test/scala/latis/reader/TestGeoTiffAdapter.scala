@@ -9,7 +9,7 @@ class TestGeoTiffAdapter {
   
   //@Test
   def testread {
-    val ds = TsmlReader("tsml/tiff.tsml").getDataset
+    val ds = TsmlReader("tiff.tsml").getDataset
     //AsciiWriter.write(ds)
   }
 
