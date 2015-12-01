@@ -1,6 +1,7 @@
 package latis.ops
 
 import latis.dm._
+import latis.reader.DatasetAccessor
 
 class Overlay(layer: Dataset) extends Operation {
   
@@ -16,5 +17,18 @@ class Overlay(layer: Dataset) extends Operation {
         Dataset(Tuple(vs1 ++ vs2), ds.getMetadata)
     }
   }
+  
+}
+
+object Overlay extends OperationFactory {
+  
+  def apply(ds: Dataset): Overlay = new Overlay(ds)
+  
+  def apply(name: String): Overlay = {
+    val ds = DatasetAccessor.fromName(name).getDataset
+    Overlay(ds)
+  }
+  
+  override def apply(args: Seq[String]) = Overlay(args.head)
   
 }
