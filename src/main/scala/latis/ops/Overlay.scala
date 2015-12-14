@@ -18,6 +18,11 @@ class Overlay(layer: Dataset) extends Operation {
     }
   }
   
+  /**
+   * Combine two Overlays into one
+   */
+  def apply(ol: Overlay): Overlay = Overlay(ol(layer))
+  
 }
 
 object Overlay extends OperationFactory {
@@ -29,6 +34,9 @@ object Overlay extends OperationFactory {
     Overlay(ds)
   }
   
-  override def apply(args: Seq[String]) = Overlay(args.head)
+  override def apply(args: Seq[String]) = args.length match {
+    case 1 => Overlay(args.head)
+    case _ => args.map(Overlay(_)).reduceLeft(_(_))
+  }
   
 }
