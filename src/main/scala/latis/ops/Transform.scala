@@ -33,11 +33,11 @@ class Transform extends Operation {
           "A function must have a domain of the form Tuple(x,y,z) to be transformed")
     }
     
-    JTS.transform(coord, coord, transform)
+    val tcoord = JTS.transform(coord, null, transform)
     
-    val dom = Tuple(Real(Metadata("lat"), coord.x), 
-                    Real(Metadata("lon"), coord.y), 
-                    Real(Metadata("alt"), coord.z))
+    val dom = Tuple(Real(Metadata("lat"), tcoord.x), 
+                    Real(Metadata("lon"), tcoord.y), 
+                    Real(Metadata("alt"), tcoord.z))
     
     Some(Sample(dom, sample.range))
   }
@@ -46,15 +46,10 @@ class Transform extends Operation {
    * Override to set the new CRS Metadata.
    */
   override def applyToFunction(function: Function): Option[Variable] = {
-    val mit = new MappingIterator(function.iterator, (s: Sample) => this.applyToSample(s))
-    val template = mit.peek match {
-      case null => function.getSample //empty iterator so no-op
-      case s => s
+    super.applyToFunction(function) match {
+      case Some(f: Function) => Some(Function(f.getDomain, f.getRange, f.iterator, f.getMetadata + ("epsg" -> "4979")))
+      case other => other
     }
-    
-    val md = function.getMetadata + ("epsg" -> "4979")
-    
-    Some(Function(template.domain, template.range, mit, md))
   }
   
 }
