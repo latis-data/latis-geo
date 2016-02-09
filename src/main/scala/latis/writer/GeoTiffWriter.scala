@@ -7,6 +7,7 @@ import java.awt.image.PixelInterleavedSampleModel
 import java.awt.image.Raster
 import java.awt.image.WritableRaster
 import java.io.File
+
 import org.geotools.coverage.CoverageFactoryFinder
 import org.geotools.coverage.grid.GridCoverage2D
 import org.geotools.data.DataUtilities
@@ -24,17 +25,20 @@ import org.geotools.renderer.lite.StreamingRenderer
 import org.geotools.styling.SLD
 import org.geotools.styling.Style
 import org.opengis.geometry.Envelope
+import org.opengis.referencing.crs.CoordinateReferenceSystem
+import org.opengis.referencing.cs.AxisDirection.EAST
+import org.opengis.referencing.cs.AxisDirection.NORTH
+
 import com.vividsolutions.jts.geom.Coordinate
+
 import latis.dm.Dataset
 import latis.dm.Function
 import latis.dm.Number
 import latis.dm.Sample
+import latis.dm.Scalar
 import latis.dm.Tuple
 import latis.util.ColorModels
 import latis.util.iterator.PeekIterator
-import latis.dm.Scalar
-import org.opengis.referencing.crs.CoordinateReferenceSystem
-import org.opengis.referencing.cs.AxisDirection._
 
 /**
  * Uses Geotools to write a Geotiff image. The Dataset to be written must be modeled 
