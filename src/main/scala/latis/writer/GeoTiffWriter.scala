@@ -8,11 +8,15 @@ import java.awt.image.Raster
 import java.awt.image.WritableRaster
 import java.io.File
 
+import scala.collection.JavaConversions.bufferAsJavaList
+import scala.collection.mutable.ListBuffer
+
 import org.geotools.coverage.CoverageFactoryFinder
 import org.geotools.coverage.grid.GridCoverage2D
 import org.geotools.data.DataUtilities
+import org.geotools.data.collection.ListFeatureCollection
+import org.geotools.data.simple.SimpleFeatureCollection
 import org.geotools.factory.CommonFactoryFinder
-import org.geotools.feature.FeatureCollections
 import org.geotools.feature.simple.SimpleFeatureBuilder
 import org.geotools.geometry.jts.JTSFactoryFinder
 import org.geotools.geometry.jts.ReferencedEnvelope
@@ -24,6 +28,7 @@ import org.geotools.referencing.CRS
 import org.geotools.renderer.lite.StreamingRenderer
 import org.geotools.styling.SLD
 import org.geotools.styling.Style
+import org.opengis.feature.simple.SimpleFeature
 import org.opengis.geometry.Envelope
 import org.opengis.referencing.crs.CoordinateReferenceSystem
 import org.opengis.referencing.cs.AxisDirection.EAST
@@ -35,7 +40,6 @@ import latis.dm.Dataset
 import latis.dm.Function
 import latis.dm.Number
 import latis.dm.Sample
-import latis.dm.Scalar
 import latis.dm.Tuple
 import latis.util.ColorModels
 import latis.util.iterator.PeekIterator
@@ -44,6 +48,10 @@ import latis.util.iterator.PeekIterator
  * Uses Geotools to write a Geotiff image. The Dataset to be written must be modeled 
  * as either a single gridded Function or a Tuple of Functions. In the second case, each Function
  * will be treated as an individual layer of the image. 
+ * 
+ * Gridded Functions (rasters) must have a regular Cartesian product as a domain.
+ * For a grayscale image, the range should be a single Scalar. For colored images, the 
+ * range should be a Tuple containing a Scalar for the blue, green, and red bands. 
  * 
  * Feature Functions (lines, points) must be named "line" or "points" respectively 
  * and have a range consisting of a Tuple of longitude and latitude values.
@@ -72,21 +80,21 @@ class GeoTiffWriter extends FileWriter {
     val samples = function.iterator.toSeq 
     val length = samples.size
     
-    val (xname, yname, range) = samples.head match {
-      case Sample(Tuple(Seq(x: Scalar, y: Scalar)), r) => (x.getName, y.getName, r)
+    val (xs, ys) = samples.map(_ match {
+      case Sample(Tuple(Seq(Number(x), Number(y))), _) => (x, y)
+    }).unzip
+    
+    val width = xs.distinct.size
+    
+    val height = ys.distinct.size
+    
+    val bands = samples.head match {
+      case Sample(_, n: Number) => 1
+      case Sample(_, Tuple(Seq(b: Number, g: Number, r: Number))) => 3
+      case _ => throw new Exception("Images can only be made of Functions with 1 or 3 bands in the range.")
     }
     
-    val width = samples.flatMap(_.findVariableByName(xname)).flatMap {x => 
-      if(x.isNumeric) Some(x.getNumberData.doubleValue) else None
-    }.distinct.size
-    
-    val height = samples.flatMap(_.findVariableByName(yname)).flatMap {x => 
-      if(x.isNumeric) Some(x.getNumberData.doubleValue) else None
-    }.distinct.size
-    
-    val bands = range.toSeq.size
-    
-    assert(width * height == length)
+    if(width * height != length) throw new Exception("Function domain must be represented by a Cartesian product set.")
     
     //handle crs's with various lat/lon orderings. 
     val cs = getCrs(function).getCoordinateSystem
@@ -192,13 +200,13 @@ class GeoTiffWriter extends FileWriter {
   /**
    * Makes a FeatureCollection containing a single line.
    */
-  def getLineCollection(function: Function) = {
+  def getLineCollection(function: Function): SimpleFeatureCollection = {
     val srid = function.getMetadata("epsg") match {
       case Some(s) => s
       case None => "4326"
     }
     val ftype = DataUtilities.createType("line", s"line:LineString:srid=$srid")
-    val fcol = FeatureCollections.newCollection
+    val fcol = ListBuffer[SimpleFeature]()
     val fbuilder = new SimpleFeatureBuilder(ftype)
     val gfac = JTSFactoryFinder.getGeometryFactory
     
@@ -211,21 +219,21 @@ class GeoTiffWriter extends FileWriter {
     val line = gfac.createLineString(coords.toArray)
     fbuilder.add(line)
     val f = fbuilder.buildFeature(null)
-    fcol.add(f)
-    fcol
+    fcol += f
+    new ListFeatureCollection(ftype, fcol)
   }
   
   /**
    * Makes a FeatureCollection containing a Point for each 
    * sample in the function.
    */
-  def getPointCollection(function: Function) = {
+  def getPointCollection(function: Function): SimpleFeatureCollection = {
     val srid = function.getMetadata("epsg") match {
       case Some(s) => s
       case None => "4326"
     }
     val ftype = DataUtilities.createType("point", s"point:Point:srid=$srid")
-    val fcol = FeatureCollections.newCollection
+    val fcol = ListBuffer[SimpleFeature]()
     val fbuilder = new SimpleFeatureBuilder(ftype)
     val gfac = JTSFactoryFinder.getGeometryFactory
     
@@ -239,9 +247,9 @@ class GeoTiffWriter extends FileWriter {
       val point = gfac.createPoint(c)
       fbuilder.add(point)
       val f = fbuilder.buildFeature(null)
-      fcol.add(f)
+      fcol += f
     }
-    fcol
+    new ListFeatureCollection(ftype, fcol)
   }
   
   /**
