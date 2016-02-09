@@ -7,7 +7,6 @@ import java.awt.image.PixelInterleavedSampleModel
 import java.awt.image.Raster
 import java.awt.image.WritableRaster
 import java.io.File
-
 import org.geotools.coverage.CoverageFactoryFinder
 import org.geotools.coverage.grid.GridCoverage2D
 import org.geotools.data.DataUtilities
@@ -25,9 +24,7 @@ import org.geotools.renderer.lite.StreamingRenderer
 import org.geotools.styling.SLD
 import org.geotools.styling.Style
 import org.opengis.geometry.Envelope
-
 import com.vividsolutions.jts.geom.Coordinate
-
 import latis.dm.Dataset
 import latis.dm.Function
 import latis.dm.Number
@@ -35,14 +32,14 @@ import latis.dm.Sample
 import latis.dm.Tuple
 import latis.util.ColorModels
 import latis.util.iterator.PeekIterator
+import latis.dm.Scalar
+import org.opengis.referencing.crs.CoordinateReferenceSystem
+import org.opengis.referencing.cs.AxisDirection._
 
 /**
  * Uses Geotools to write a Geotiff image. The Dataset to be written must be modeled 
  * as either a single gridded Function or a Tuple of Functions. In the second case, each Function
  * will be treated as an individual layer of the image. 
- * 
- * Gridded Functions (raster data) must have "width" and "length" Metadata which define
- * the size of image that is to be written. 
  * 
  * Feature Functions (lines, points) must be named "line" or "points" respectively 
  * and have a range consisting of a Tuple of longitude and latitude values.
@@ -53,14 +50,53 @@ import latis.util.iterator.PeekIterator
 class GeoTiffWriter extends FileWriter {
   
   /**
+   * Get the CoordinateReferenceSystem defined by epsg code
+   * in this Function's Metadata. If no "epsg" metadata is defined,
+   * default to WGS84 (epsg:4326).
+   */
+  def getCrs(function: Function): CoordinateReferenceSystem = {
+    function.getMetadata("epsg") match {
+      case Some(s) => CRS.decode(s"epsg:$s")
+      case None => CRS.decode("epsg:4326")
+    }
+  }
+  
+  /**
+   * Get the width, height, and number of variables in the range of the given function. 
+   */
+  def getDimensions(function: Function): (Int, Int, Int) = {
+    val samples = function.iterator.toSeq 
+    val length = samples.size
+    
+    val (xname, yname, range) = samples.head match {
+      case Sample(Tuple(Seq(x: Scalar, y: Scalar)), r) => (x.getName, y.getName, r)
+    }
+    
+    val width = samples.flatMap(_.findVariableByName(xname)).flatMap {x => 
+      if(x.isNumeric) Some(x.getNumberData.doubleValue) else None
+    }.distinct.size
+    
+    val height = samples.flatMap(_.findVariableByName(yname)).flatMap {x => 
+      if(x.isNumeric) Some(x.getNumberData.doubleValue) else None
+    }.distinct.size
+    
+    val bands = range.toSeq.size
+    
+    assert(width * height == length)
+    
+    //handle crs's with various lat/lon orderings. 
+    val cs = getCrs(function).getCoordinateSystem
+    (cs.getAxis(0).getDirection, cs.getAxis(1).getDirection) match {
+      case (EAST, NORTH) => (width, height, bands)
+      case (NORTH, EAST) => (height, width, bands)
+    }
+  }
+  
+  /**
    * Creates a WritableRaster with a size determined by the function's metadata.
    */
   def getRaster(function: Function): WritableRaster = {
-    val width = function.getMetadata("width").getOrElse(
-        throw new Exception("function must have pixel width defined in the tsml")).toInt
-    val height = function.getMetadata("height").getOrElse(
-        throw new Exception("function must have pixel height defined in the tsml")).toInt
-    val bands = function.getRange.toSeq.length
+    val (width, height, bands) = getDimensions(function)
     
     val model = new PixelInterleavedSampleModel(DataBuffer.TYPE_BYTE, width, height, bands, width * bands, Array.range(0, bands))
     
@@ -93,10 +129,7 @@ class GeoTiffWriter extends FileWriter {
    * relative to a coordinate system defined in the metadata.
    */
   def getEnvelope(function: Function, raster: WritableRaster): Envelope = {
-    val crs = function.getMetadata("epsg") match {
-      case Some(s) => CRS.decode(s"epsg:$s")
-      case None => CRS.decode("4326")
-    }
+    val crs = getCrs(function)
     
     val bounds = fillRaster(function, raster)
     
@@ -250,16 +283,14 @@ class GeoTiffWriter extends FileWriter {
    * Construct a MapContent and paint that onto a new image. 
    * Then write the image to the specified file. 
    */
-  def writeFile(ds: Dataset, file: File) = {
+  def writeFile(dataset: Dataset, file: File) = {
+    val ds = dataset.force
     val map = getMap(ds)
     
     //the first function must have gridded data with an appropriate width and height
     val f = ds.unwrap.findFunction.get
     
-    val width = f.getMetadata("width").getOrElse(
-        throw new Exception("function must have pixel width defined in the tsml")).toInt
-    val height = f.getMetadata("height").getOrElse(
-        throw new Exception("function must have pixel height defined in the tsml")).toInt
+    val (width, height, bands) = getDimensions(f)
     
     //create the image that the dataset will be written to.
     val image = new BufferedImage(width, height, BufferedImage.TYPE_3BYTE_BGR)
