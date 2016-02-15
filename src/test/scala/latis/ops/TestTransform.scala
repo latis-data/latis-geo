@@ -20,9 +20,9 @@ class TestTransform {
                                 Real(Metadata("z"), 4351898.060411415))), Real(Metadata("foo"),0.0)))))
     val ds = t(f)
     val data = ds.toDoubleMap
-    assertEquals(43.301, data("lat")(0), 0.0000001)
-    assertEquals(-77.626667, data("lon")(0), 0.00000000001)
-    assertEquals(0, data("alt")(0), 0.01)
+    assertEquals(43.301, data("latitude")(0), 0.0000001)
+    assertEquals(-77.626667, data("longitude")(0), 0.00000000001)
+    assertEquals(0, data("altitude")(0), 0.01)
   }
   
 }

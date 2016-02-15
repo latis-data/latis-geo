@@ -8,11 +8,15 @@ import java.awt.image.Raster
 import java.awt.image.WritableRaster
 import java.io.File
 
+import scala.collection.JavaConversions.bufferAsJavaList
+import scala.collection.mutable.ListBuffer
+
 import org.geotools.coverage.CoverageFactoryFinder
 import org.geotools.coverage.grid.GridCoverage2D
 import org.geotools.data.DataUtilities
+import org.geotools.data.collection.ListFeatureCollection
+import org.geotools.data.simple.SimpleFeatureCollection
 import org.geotools.factory.CommonFactoryFinder
-import org.geotools.feature.FeatureCollections
 import org.geotools.feature.simple.SimpleFeatureBuilder
 import org.geotools.geometry.jts.JTSFactoryFinder
 import org.geotools.geometry.jts.ReferencedEnvelope
@@ -24,7 +28,11 @@ import org.geotools.referencing.CRS
 import org.geotools.renderer.lite.StreamingRenderer
 import org.geotools.styling.SLD
 import org.geotools.styling.Style
+import org.opengis.feature.simple.SimpleFeature
 import org.opengis.geometry.Envelope
+import org.opengis.referencing.crs.CoordinateReferenceSystem
+import org.opengis.referencing.cs.AxisDirection.EAST
+import org.opengis.referencing.cs.AxisDirection.NORTH
 
 import com.vividsolutions.jts.geom.Coordinate
 
@@ -41,8 +49,9 @@ import latis.util.iterator.PeekIterator
  * as either a single gridded Function or a Tuple of Functions. In the second case, each Function
  * will be treated as an individual layer of the image. 
  * 
- * Gridded Functions (raster data) must have "width" and "length" Metadata which define
- * the size of image that is to be written. 
+ * Gridded Functions (rasters) must have a regular Cartesian product as a domain.
+ * For a grayscale image, the range should be a single Scalar. For colored images, the 
+ * range should be a Tuple containing a Scalar for the blue, green, and red bands. 
  * 
  * Feature Functions (lines, points) must be named "line" or "points" respectively 
  * and have a range consisting of a Tuple of longitude and latitude values.
@@ -53,14 +62,53 @@ import latis.util.iterator.PeekIterator
 class GeoTiffWriter extends FileWriter {
   
   /**
+   * Get the CoordinateReferenceSystem defined by epsg code
+   * in this Function's Metadata. If no "epsg" metadata is defined,
+   * default to WGS84 (epsg:4326).
+   */
+  def getCrs(function: Function): CoordinateReferenceSystem = {
+    function.getMetadata("epsg") match {
+      case Some(s) => CRS.decode(s"epsg:$s")
+      case None => CRS.decode("epsg:4326")
+    }
+  }
+  
+  /**
+   * Get the width, height, and number of variables in the range of the given function. 
+   */
+  def getDimensions(function: Function): (Int, Int, Int) = {
+    val samples = function.iterator.toSeq 
+    val length = samples.size
+    
+    val (xs, ys) = samples.map(_ match {
+      case Sample(Tuple(Seq(Number(x), Number(y))), _) => (x, y)
+    }).unzip
+    
+    val width = xs.distinct.size
+    
+    val height = ys.distinct.size
+    
+    val bands = samples.head match {
+      case Sample(_, n: Number) => 1
+      case Sample(_, Tuple(Seq(b: Number, g: Number, r: Number))) => 3
+      case _ => throw new Exception("Images can only be made of Functions with 1 or 3 bands in the range.")
+    }
+    
+    if(width * height != length) throw new Exception("Function domain must be represented by a Cartesian product set.")
+    
+    //handle crs's with various lat/lon orderings. 
+    val cs = getCrs(function).getCoordinateSystem
+    (cs.getAxis(0).getDirection, cs.getAxis(1).getDirection) match {
+      case (EAST, NORTH) => (width, height, bands)
+      case (NORTH, EAST) => (height, width, bands)
+    }
+  }
+  
+  /**
    * Creates a WritableRaster with a size determined by the function's metadata.
    */
   def getRaster(function: Function): WritableRaster = {
-    val width = function.getMetadata("width").getOrElse(
-        throw new Exception("function must have pixel width defined in the tsml")).toInt
-    val height = function.getMetadata("height").getOrElse(
-        throw new Exception("function must have pixel height defined in the tsml")).toInt
-    val bands = function.getRange.toSeq.length
+    val (width, height, bands) = getDimensions(function)
     
     val model = new PixelInterleavedSampleModel(DataBuffer.TYPE_BYTE, width, height, bands, width * bands, Array.range(0, bands))
     
@@ -93,10 +141,7 @@ class GeoTiffWriter extends FileWriter {
    * relative to a coordinate system defined in the metadata.
    */
   def getEnvelope(function: Function, raster: WritableRaster): Envelope = {
-    val crs = function.getMetadata("epsg") match {
-      case Some(s) => CRS.decode(s"epsg:$s")
-      case None => CRS.decode("4326")
-    }
+    val crs = getCrs(function)
     
     val bounds = fillRaster(function, raster)
     
@@ -155,13 +200,13 @@ class GeoTiffWriter extends FileWriter {
   /**
    * Makes a FeatureCollection containing a single line.
    */
-  def getLineCollection(function: Function) = {
+  def getLineCollection(function: Function): SimpleFeatureCollection = {
     val srid = function.getMetadata("epsg") match {
       case Some(s) => s
       case None => "4326"
     }
     val ftype = DataUtilities.createType("line", s"line:LineString:srid=$srid")
-    val fcol = FeatureCollections.newCollection
+    val fcol = ListBuffer[SimpleFeature]()
     val fbuilder = new SimpleFeatureBuilder(ftype)
     val gfac = JTSFactoryFinder.getGeometryFactory
     
@@ -174,21 +219,21 @@ class GeoTiffWriter extends FileWriter {
     val line = gfac.createLineString(coords.toArray)
     fbuilder.add(line)
     val f = fbuilder.buildFeature(null)
-    fcol.add(f)
-    fcol
+    fcol += f
+    new ListFeatureCollection(ftype, fcol)
   }
   
   /**
    * Makes a FeatureCollection containing a Point for each 
    * sample in the function.
    */
-  def getPointCollection(function: Function) = {
+  def getPointCollection(function: Function): SimpleFeatureCollection = {
     val srid = function.getMetadata("epsg") match {
       case Some(s) => s
       case None => "4326"
     }
     val ftype = DataUtilities.createType("point", s"point:Point:srid=$srid")
-    val fcol = FeatureCollections.newCollection
+    val fcol = ListBuffer[SimpleFeature]()
     val fbuilder = new SimpleFeatureBuilder(ftype)
     val gfac = JTSFactoryFinder.getGeometryFactory
     
@@ -202,9 +247,9 @@ class GeoTiffWriter extends FileWriter {
       val point = gfac.createPoint(c)
       fbuilder.add(point)
       val f = fbuilder.buildFeature(null)
-      fcol.add(f)
+      fcol += f
     }
-    fcol
+    new ListFeatureCollection(ftype, fcol)
   }
   
   /**
@@ -250,16 +295,14 @@ class GeoTiffWriter extends FileWriter {
    * Construct a MapContent and paint that onto a new image. 
    * Then write the image to the specified file. 
    */
-  def writeFile(ds: Dataset, file: File) = {
+  def writeFile(dataset: Dataset, file: File) = {
+    val ds = dataset.force
     val map = getMap(ds)
     
     //the first function must have gridded data with an appropriate width and height
     val f = ds.unwrap.findFunction.get
     
-    val width = f.getMetadata("width").getOrElse(
-        throw new Exception("function must have pixel width defined in the tsml")).toInt
-    val height = f.getMetadata("height").getOrElse(
-        throw new Exception("function must have pixel height defined in the tsml")).toInt
+    val (width, height, bands) = getDimensions(f)
     
     //create the image that the dataset will be written to.
     val image = new BufferedImage(width, height, BufferedImage.TYPE_3BYTE_BGR)

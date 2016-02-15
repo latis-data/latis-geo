@@ -35,9 +35,9 @@ class Transform extends Operation {
     
     val tcoord = JTS.transform(coord, null, transform)
     
-    val dom = Tuple(Real(Metadata("lat"), tcoord.x), 
-                    Real(Metadata("lon"), tcoord.y), 
-                    Real(Metadata("alt"), tcoord.z))
+    val dom = Tuple(Real(Metadata("latitude"), tcoord.x), 
+                    Real(Metadata("longitude"), tcoord.y), 
+                    Real(Metadata("altitude"), tcoord.z))
     
     Some(Sample(dom, sample.range))
   }
