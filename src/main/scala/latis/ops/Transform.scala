@@ -27,19 +27,19 @@ class Transform extends Operation {
   lazy val transform = CRS.findMathTransform(sourceCRS, targetCRS)
   
   override def applyToSample(sample: Sample): Option[Sample] = {
-    val coord = sample.domain match {
+    val coord = sample.range match {
       case Tuple(Seq(Number(x), Number(y), Number(z))) => new Coordinate(x,y,z)
       case _ => throw new UnsupportedOperationException(
-          "A function must have a domain of the form Tuple(x,y,z) to be transformed")
+          "A function must have a range of the form Tuple(x,y,z) to be transformed")
     }
     
     val tcoord = JTS.transform(coord, null, transform)
     
-    val dom = Tuple(Real(Metadata("latitude"), tcoord.x), 
+    val ran = Tuple(Real(Metadata("latitude"), tcoord.x), 
                     Real(Metadata("longitude"), tcoord.y), 
                     Real(Metadata("altitude"), tcoord.z))
     
-    Some(Sample(dom, sample.range))
+    Some(Sample(sample.domain, ran))
   }
   
   /**
