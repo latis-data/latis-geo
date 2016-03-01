@@ -68,6 +68,7 @@ class GeoTiffWriter extends FileWriter {
    */
   def getCrs(function: Function): CoordinateReferenceSystem = {
     function.getMetadata("epsg") match {
+      case Some("404000") => CRS.decode("epsg:4326") //404000 is an unusable default when reading images
       case Some(s) => CRS.decode(s"epsg:$s")
       case None => CRS.decode("epsg:4326")
     }
@@ -80,13 +81,14 @@ class GeoTiffWriter extends FileWriter {
     val samples = function.iterator.toSeq 
     val length = samples.size
     
-    val (xs, ys) = samples.map(_ match {
-      case Sample(Tuple(Seq(Number(x), Number(y))), _) => (x, y)
+    val (lats, lons) = samples.map(s => (s.findVariableByName("latitude"), s.findVariableByName("longitude")) match {
+      case (Some(Number(lat)), Some(Number(lon))) => (lat,lon)
+      case _ => throw new Exception("Raster Function must have domain variables named 'latitude' and 'longitude'.")
     }).unzip
     
-    val width = xs.distinct.size
+    val width = lons.distinct.size
     
-    val height = ys.distinct.size
+    val height = lats.distinct.size
     
     val bands = samples.head match {
       case Sample(_, n: Number) => 1
@@ -229,6 +231,7 @@ class GeoTiffWriter extends FileWriter {
    */
   def getPointCollection(function: Function): SimpleFeatureCollection = {
     val srid = function.getMetadata("epsg") match {
+      case Some("4979") => "4326" //make it 2D
       case Some(s) => s
       case None => "4326"
     }
@@ -239,6 +242,7 @@ class GeoTiffWriter extends FileWriter {
     
     val coords = function.iterator.map(s => s match {
       case Sample(_, Tuple(Seq(Number(lon), Number(lat)))) => new Coordinate(lon, lat)
+      case Sample(_, Tuple(Seq(Number(lon), Number(lat), Number(alt)))) => new Coordinate(lon, lat)
       case _ => throw new IllegalArgumentException(
           "A Function named 'point' must have a range of the form: (Number(lon), Number(lat))")
     })
