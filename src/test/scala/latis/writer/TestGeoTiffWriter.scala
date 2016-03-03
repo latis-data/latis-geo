@@ -13,7 +13,9 @@ class TestGeoTiffWriter {
     val file = new File("src/test/resources/tif/test.tif")
     try{
       val ds = TsmlReader("tiff.tsml").getDataset
-      new GeoTiffWriter().writeFile(ds, file)
+      val w = new GeoTiffWriter()
+      w.setFile(file)
+      w.write(ds)
     }
     catch {
       case e: Exception => {

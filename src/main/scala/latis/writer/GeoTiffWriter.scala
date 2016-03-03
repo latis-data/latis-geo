@@ -59,7 +59,7 @@ import latis.util.iterator.PeekIterator
  * All Functions can have a coordinate reference system specified by using an EPSG code 
  * in the Metadata and will default to the code 4326 if no "epsg" Metadata is specified. 
  */
-class GeoTiffWriter extends FileWriter {
+class GeoTiffWriter extends Writer {
   
   /**
    * Get the CoordinateReferenceSystem defined by epsg code
@@ -299,7 +299,7 @@ class GeoTiffWriter extends FileWriter {
    * Construct a MapContent and paint that onto a new image. 
    * Then write the image to the specified file. 
    */
-  def writeFile(dataset: Dataset, file: File) = {
+  def write(dataset: Dataset) = {
     val ds = dataset.force
     val map = getMap(ds)
     
@@ -325,7 +325,7 @@ class GeoTiffWriter extends FileWriter {
     val coverage = gcf.create(ds.getName, image, mapBounds)
     
     //write the coverage
-    val writer = new org.geotools.gce.geotiff.GeoTiffWriter(file)
+    val writer = new org.geotools.gce.geotiff.GeoTiffWriter(getOutputStream)
     writer.write(coverage, null)
     writer.dispose
     coverage.dispose(true)
