@@ -8,6 +8,7 @@ import java.awt.image.Raster
 import java.awt.image.WritableRaster
 import java.io.File
 
+import scala.collection.JavaConverters._
 import scala.collection.JavaConversions.bufferAsJavaList
 import scala.collection.mutable.ListBuffer
 
@@ -74,6 +75,11 @@ class GeoTiffWriter extends Writer {
     }
   }
   
+  def getLatLon(s: Sample): (Double, Double) = (s.findVariableByName("latitude"), s.findVariableByName("longitude")) match {
+    case (Some(Number(lat)), Some(Number(lon))) => (lat,lon)
+    case _ => throw new Exception("Sample did not contain variables named 'latitude and 'longitude'.")
+  }
+  
   /**
    * Get the width, height, and number of variables in the range of the given function. 
    */
@@ -81,10 +87,7 @@ class GeoTiffWriter extends Writer {
     val samples = function.iterator.toSeq 
     val length = samples.size
     
-    val (lats, lons) = samples.map(s => (s.findVariableByName("latitude"), s.findVariableByName("longitude")) match {
-      case (Some(Number(lat)), Some(Number(lon))) => (lat,lon)
-      case _ => throw new Exception("Raster Function must have domain variables named 'latitude' and 'longitude'.")
-    }).unzip
+    val (lats, lons) = samples.map(getLatLon).unzip
     
     val width = lons.distinct.size
     
@@ -98,12 +101,7 @@ class GeoTiffWriter extends Writer {
     
     if(width * height != length) throw new Exception("Function domain must be represented by a Cartesian product set.")
     
-    //handle crs's with various lat/lon orderings. 
-    val cs = getCrs(function).getCoordinateSystem
-    (cs.getAxis(0).getDirection, cs.getAxis(1).getDirection) match {
-      case (EAST, NORTH) => (width, height, bands)
-      case (NORTH, EAST) => (height, width, bands)
-    }
+    (width, height, bands)
   }
   
   /**
@@ -147,10 +145,16 @@ class GeoTiffWriter extends Writer {
     
     val bounds = fillRaster(function, raster)
     
-    val f = bounds._1.domain.toSeq.map(_.getNumberData.doubleValue)
-    val l = bounds._2.domain.toSeq.map(_.getNumberData.doubleValue)
+    val (lat1, lon1) = getLatLon(bounds._1)
+    val (lat2, lon2) = getLatLon(bounds._2)
     
-    new ReferencedEnvelope(f(0), l(0), f(1), l(1), crs)
+    //handle different axis orderings of the crs
+    val cs = crs.getCoordinateSystem
+    (cs.getAxis(0).getDirection, cs.getAxis(1).getDirection) match {
+      case (EAST, NORTH) => new ReferencedEnvelope(lon1, lon2, lat1, lat2, crs)
+      case (NORTH, EAST) => new ReferencedEnvelope(lat1, lat2, lon1, lon2, crs)
+    }
+    
   }
   
   /**
@@ -203,19 +207,28 @@ class GeoTiffWriter extends Writer {
    * Makes a FeatureCollection containing a single line.
    */
   def getLineCollection(function: Function): SimpleFeatureCollection = {
+    val crs = getCrs(function)
+    val cs = crs.getCoordinateSystem
+    
     val srid = function.getMetadata("epsg") match {
+      case Some("4979") => "4326" //make it 2D
       case Some(s) => s
       case None => "4326"
     }
+    
     val ftype = DataUtilities.createType("line", s"line:LineString:srid=$srid")
     val fcol = ListBuffer[SimpleFeature]()
     val fbuilder = new SimpleFeatureBuilder(ftype)
     val gfac = JTSFactoryFinder.getGeometryFactory
     
-    val coords = function.iterator.map(s => s match {
-      case Sample(_, Tuple(Seq(Number(lon), Number(lat)))) => new Coordinate(lon, lat)
-      case _ => throw new IllegalArgumentException(
-          "A Function named 'line' must have a range of the form: (Number(lon), Number(lat))")
+    val orderAxes = (cs.getAxis(0).getDirection, cs.getAxis(1).getDirection) match {
+      case (EAST, NORTH) => (lat: Double, lon: Double) => new Coordinate(lon, lat)
+      case (NORTH, EAST) => (lat: Double, lon: Double) => new Coordinate(lat, lon)
+    }
+    
+    val coords = function.iterator.map(s => {
+      val (lat, lon) = getLatLon(s)
+      orderAxes(lat,lon)
     })
     
     val line = gfac.createLineString(coords.toArray)
@@ -230,21 +243,28 @@ class GeoTiffWriter extends Writer {
    * sample in the function.
    */
   def getPointCollection(function: Function): SimpleFeatureCollection = {
+    val crs = getCrs(function)
+    val cs = crs.getCoordinateSystem
+    
     val srid = function.getMetadata("epsg") match {
       case Some("4979") => "4326" //make it 2D
       case Some(s) => s
       case None => "4326"
     }
+    
     val ftype = DataUtilities.createType("point", s"point:Point:srid=$srid")
     val fcol = ListBuffer[SimpleFeature]()
     val fbuilder = new SimpleFeatureBuilder(ftype)
     val gfac = JTSFactoryFinder.getGeometryFactory
     
-    val coords = function.iterator.map(s => s match {
-      case Sample(_, Tuple(Seq(Number(lon), Number(lat)))) => new Coordinate(lon, lat)
-      case Sample(_, Tuple(Seq(Number(lon), Number(lat), Number(alt)))) => new Coordinate(lon, lat)
-      case _ => throw new IllegalArgumentException(
-          "A Function named 'point' must have a range of the form: (Number(lon), Number(lat))")
+    val orderAxes = (cs.getAxis(0).getDirection, cs.getAxis(1).getDirection) match {
+      case (EAST, NORTH) => (lat: Double, lon: Double) => new Coordinate(lon, lat)
+      case (NORTH, EAST) => (lat: Double, lon: Double) => new Coordinate(lat, lon)
+    }
+    
+    val coords = function.iterator.map(s => {
+      val (lat, lon) = getLatLon(s)
+      orderAxes(lat,lon)
     })
     
     coords.foreach { c => 
