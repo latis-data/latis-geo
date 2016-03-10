@@ -17,7 +17,11 @@ import latis.util.StringUtils
 
 class ImageAdapter(tsml: Tsml) extends IterativeAdapter[((Double, Double), Array[Int])](tsml) {
     
-  lazy val reader: AbstractGridCoverage2DReader = new WorldImageReader(getUrl)
+  private var _reader: AbstractGridCoverage2DReader = null
+  lazy val reader = {
+    _reader = new WorldImageReader(getUrl)
+    _reader
+  }
   
   lazy val coverage: GridCoverage2D = reader.read(null)
   
@@ -49,7 +53,7 @@ class ImageAdapter(tsml: Tsml) extends IterativeAdapter[((Double, Double), Array
   }
   
   def close = {
-    reader.dispose
+    if (_reader != null) _reader.dispose
   }
   
   //An awkward record type, but it works
