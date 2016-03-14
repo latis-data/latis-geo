@@ -1,18 +1,24 @@
 package latis.util
 
-import org.geotools.styling.StyleFactoryFinder
-import org.geotools.filter.FilterFactoryFinder
+
 import java.awt.Color
+
+import org.opengis.style.GraphicalSymbol
+import org.opengis.filter.expression.Expression
+import org.opengis.filter.expression.Expression
+
 import org.geotools.styling.Rule
 import org.geotools.styling.Style
 import org.geotools.styling.Symbolizer
-import org.opengis.style.GraphicalSymbol
 import org.geotools.styling.AnchorPoint
 import org.geotools.styling.Displacement
-import org.opengis.filter.expression.Expression
-import scala.collection.JavaConverters._
 import org.geotools.styling.PointSymbolizer
 import org.geotools.styling.StyleFactory
+import org.geotools.styling.StyleFactoryFinder
+import org.geotools.filter.FilterFactoryFinder
+
+import scala.collection.JavaConverters._
+
 
 object CircleMarkPointStyle {
   
@@ -22,8 +28,9 @@ object CircleMarkPointStyle {
     // controls            color                                      line width
     val stroke = sf.stroke(filterFactory.literal(Color.ORANGE), null, filterFactory.literal(.5), null, null, null, null)
     // controls              color opacity (0 to 1)
-    val fill = sf.fill(null, null, null) // ie. no fill so we get open circles
+    val fill = sf.fill(null, null, null) // no fill so we get open circles
     
+    // needed to do this since sf.graphic() below requries a java list
     val sl = scala.collection.mutable.ListBuffer[GraphicalSymbol](sf.mark(filterFactory.literal("circle"), fill, stroke))
     val symbols: java.util.List[GraphicalSymbol] = sl.asJava
     
@@ -38,5 +45,4 @@ object CircleMarkPointStyle {
     
     pointSymbolizer
   }
-
 }
