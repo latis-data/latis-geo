@@ -26,6 +26,8 @@ class Transform extends Operation {
   
   lazy val transform = CRS.findMathTransform(sourceCRS, targetCRS)
   
+  //Note, applies to any tuple with 3 Numbers.
+  //TODO: match name or metadata convention for geolocation
   override def applyToTuple(tuple: Tuple) = tuple match {
     case Tuple(Seq(Number(x), Number(y), Number(z))) => {
       
@@ -39,7 +41,8 @@ class Transform extends Operation {
                       Real(Metadata("altitude"),  tcoord.z))
       Some(tup)
     }
-    case _ => throw new UnsupportedOperationException("The Transform Operation expects a Tuple(x,y,z).")
+    case _ => super.applyToTuple(tuple) //presumably some other Tuple in the dataset
+      //throw new UnsupportedOperationException("The Transform Operation expects a Tuple(x,y,z).")
   }
   
 //  override def applyToSample(sample: Sample): Option[Sample] = {
