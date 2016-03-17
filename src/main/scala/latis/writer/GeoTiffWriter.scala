@@ -147,11 +147,8 @@ class GeoTiffWriter extends Writer {
     
     //handle different axis orderings of the crs
     val cs = crs.getCoordinateSystem
-    (cs.getAxis(0).getDirection, cs.getAxis(1).getDirection) match {
-      case (EAST, NORTH) => new ReferencedEnvelope(lon1, lon2, lat1, lat2, crs)
-      case (NORTH, EAST) => new ReferencedEnvelope(lat1, lat2, lon1, lon2, crs)
-    }
     
+    new ReferencedEnvelope(lon1, lon2, lat1, lat2, crs)
   }
   
   /**
@@ -218,14 +215,9 @@ class GeoTiffWriter extends Writer {
     val fbuilder = new SimpleFeatureBuilder(ftype)
     val gfac = JTSFactoryFinder.getGeometryFactory
     
-    val orderAxes = (cs.getAxis(0).getDirection, cs.getAxis(1).getDirection) match {
-      case (EAST, NORTH) => (lat: Double, lon: Double) => new Coordinate(lon, lat)
-      case (NORTH, EAST) => (lat: Double, lon: Double) => new Coordinate(lat, lon)
-    }
-    
     val coords = function.iterator.map(s => {
       val (lat, lon) = getLatLon(s)
-      orderAxes(lat,lon)
+      new Coordinate(lon, lat)
     })
     
     val line = gfac.createLineString(coords.toArray)
@@ -254,14 +246,9 @@ class GeoTiffWriter extends Writer {
     val fbuilder = new SimpleFeatureBuilder(ftype)
     val gfac = JTSFactoryFinder.getGeometryFactory
     
-    val orderAxes = (cs.getAxis(0).getDirection, cs.getAxis(1).getDirection) match {
-      case (EAST, NORTH) => (lat: Double, lon: Double) => new Coordinate(lon, lat)
-      case (NORTH, EAST) => (lat: Double, lon: Double) => new Coordinate(lat, lon)
-    }
-    
     val coords = function.iterator.map(s => {
       val (lat, lon) = getLatLon(s)
-      orderAxes(lat,lon)
+      new Coordinate(lon, lat)
     })
     
     coords.foreach { c => 
