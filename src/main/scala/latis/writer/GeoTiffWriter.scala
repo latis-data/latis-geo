@@ -41,6 +41,7 @@ import latis.dm.Tuple
 import latis.util.ColorModels
 import latis.util.iterator.PeekIterator
 import latis.util.CircleMarkPointStyle
+import latis.util.WindMarkPointStyle
 
 /**
  * Uses Geotools to write a Geotiff image. The Dataset to be written must be modeled 
@@ -193,6 +194,7 @@ class GeoTiffWriter extends Writer {
     val sf = CommonFactoryFinder.getStyleFactory
     val sym = if(function.hasName("line")) sf.getDefaultLineSymbolizer
       else if(function.hasName("points")) CircleMarkPointStyle.getCustomPointCircleSymbolizer(sf)
+      else if(function.hasName("wind")) WindMarkPointStyle.getCustomWindSymbolizer(sf,function) // need to pass in wind speed and angle
       else sf.getDefaultRasterSymbolizer
     SLD.wrapSymbolizers(sym)
   }
@@ -260,6 +262,39 @@ class GeoTiffWriter extends Writer {
     new ListFeatureCollection(ftype, fcol)
   }
   
+    /**
+   * Makes a FeatureCollection containing an Point for each 
+   * sample in the function.
+   */
+  def getWindCollection(function: Function): SimpleFeatureCollection = {
+    val crs = getCrs(function)
+    val cs = crs.getCoordinateSystem
+    
+    val srid = function.getMetadata("epsg") match {
+      case Some("4979") => "4326" //make it 2D
+      case Some(s) => s
+      case None => "4326"
+    }
+    
+    val ftype = DataUtilities.createType("arrow", s"arrow:Arrow:srid=$srid")
+    val fcol = ListBuffer[SimpleFeature]()
+    val fbuilder = new SimpleFeatureBuilder(ftype)
+    val gfac = JTSFactoryFinder.getGeometryFactory
+    
+    val coords = function.iterator.map(s => {
+      val (lat, lon) = getLatLon(s)
+      new Coordinate(lon, lat)
+    })
+    
+    coords.foreach { c => 
+      val point = gfac.createPoint(c)
+      fbuilder.add(point)
+      val f = fbuilder.buildFeature(null)
+      fcol += f
+    }
+    new ListFeatureCollection(ftype, fcol)
+  }
+  
   /**
    * Constructs a layer using a coverage and a style.
    */
@@ -270,6 +305,10 @@ class GeoTiffWriter extends Writer {
       new FeatureLayer(fcol, style)
     } else if(function.hasName("points")) {
       val fcol = getPointCollection(function)
+      val style = getStyle(function)
+      new FeatureLayer(fcol, style)
+    } else if(function.hasName("wind")) {
+      val fcol = getWindCollection(function)
       val style = getStyle(function)
       new FeatureLayer(fcol, style)
     } else {
