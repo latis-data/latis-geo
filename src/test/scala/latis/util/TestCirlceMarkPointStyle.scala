@@ -7,7 +7,6 @@ import org.junit.Assert._
 
 import org.geotools.styling.StyleFactory
 import org.geotools.factory.CommonFactoryFinder
-import org.geotools.filter.FilterFactoryFinder
 
 import org.opengis.filter.expression.Expression
 import org.opengis.filter.FilterFactory
@@ -21,7 +20,7 @@ class TestCircleMarkPointStyle {
   @Before
   def init {
     sf = CommonFactoryFinder.getStyleFactory
-    ff = FilterFactoryFinder.createFilterFactory
+    ff = CommonFactoryFinder.getFilterFactory
   }
   
   /*
