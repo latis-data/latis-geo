@@ -194,7 +194,7 @@ class GeoTiffWriter extends Writer {
     val sf = CommonFactoryFinder.getStyleFactory
     val sym = if(function.hasName("line")) sf.getDefaultLineSymbolizer
       else if(function.hasName("points")) CircleMarkPointStyle.getCustomPointCircleSymbolizer(sf)
-      else if(function.hasName("wind")) WindMarkPointStyle.getCustomWindSymbolizer(sf,function) // need to pass in wind speed and angle
+      else if(function.hasName("wind")) WindMarkPointStyle.getCustomWindSymbolizer(sf,45.0)
       else sf.getDefaultRasterSymbolizer
     SLD.wrapSymbolizers(sym)
   }
@@ -255,6 +255,7 @@ class GeoTiffWriter extends Writer {
     
     coords.foreach { c => 
       val point = gfac.createPoint(c)
+      println("event point: " + point.toString())
       fbuilder.add(point)
       val f = fbuilder.buildFeature(null)
       fcol += f
@@ -276,7 +277,7 @@ class GeoTiffWriter extends Writer {
       case None => "4326"
     }
     
-    val ftype = DataUtilities.createType("arrow", s"arrow:Arrow:srid=$srid")
+    val ftype = DataUtilities.createType("point", s"point:Point:srid=$srid")
     val fcol = ListBuffer[SimpleFeature]()
     val fbuilder = new SimpleFeatureBuilder(ftype)
     val gfac = JTSFactoryFinder.getGeometryFactory
@@ -288,6 +289,7 @@ class GeoTiffWriter extends Writer {
     
     coords.foreach { c => 
       val point = gfac.createPoint(c)
+      println("wind point: " + point.toString())
       fbuilder.add(point)
       val f = fbuilder.buildFeature(null)
       fcol += f
@@ -332,8 +334,12 @@ class GeoTiffWriter extends Writer {
     
     val map = new MapContent()
     map.setTitle(ds.getName)
-    
-    layers.foreach(map.addLayer(_))
+    //order is important when adding layers!!
+    //the first function must be the image function!!
+    map.addLayer(layers(1))
+    map.addLayer(layers(0))
+    map.addLayer(layers(2))
+    //layers.foreach(map.addLayer(_))
     
     map
   }
@@ -347,9 +353,16 @@ class GeoTiffWriter extends Writer {
     val map = getMap(ds)
     
     //the first function must have gridded data with an appropriate width and height
-    val f = ds.unwrap.findFunction.get
-    
-    val (width, height, bands) = getDimensions(f)
+    //ugh, is there a way to ask the dataset to give us the function named "image" instead of doing this?
+    val f2 = ds match {
+      case Dataset(t) => t match {
+        case Tuple(f) => f(1) match {
+          case i: Function => i
+        }
+      }
+    }
+    //val f = ds.unwrap.findFunction.get
+    val (width, height, bands) = getDimensions(f2)
     
     //create the image that the dataset will be written to.
     val image = new BufferedImage(width, height, BufferedImage.TYPE_3BYTE_BGR)
