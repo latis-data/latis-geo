@@ -38,6 +38,7 @@ import latis.dm.Function
 import latis.dm.Number
 import latis.dm.Sample
 import latis.dm.Tuple
+import latis.dm.Real
 import latis.util.ColorModels
 import latis.util.iterator.PeekIterator
 import latis.util.CircleMarkPointStyle
@@ -194,7 +195,28 @@ class GeoTiffWriter extends Writer {
     val sf = CommonFactoryFinder.getStyleFactory
     val sym = if(function.hasName("line")) sf.getDefaultLineSymbolizer
       else if(function.hasName("points")) CircleMarkPointStyle.getCustomPointCircleSymbolizer(sf)
-      else if(function.hasName("wind")) WindMarkPointStyle.getCustomWindSymbolizer(sf,45.0)
+      else if(function.hasName("wind")) {
+        println("getting wind vectors")
+        function.iterator.foreach { x => {
+            val (u,v) = (x.range.findVariableByName("u10m"),x.range.findVariableByName("u10m")) match {
+              case (Some(Real(u)), Some(Real(v))) => (u,v)
+            }
+            println("(u,v) = (" + u.toString +","+ v.toString +")")
+            // normalizing u & v
+            val norm = Math.sqrt(u*u + v*v)
+            // wind angle
+            val atan = Math.atan2(u/norm, v/norm)
+            // to degrees
+            val deg = atan * 180/Math.PI
+            // direction wind is coming from
+            //val dir = deg + 180
+            // get angle from y-axis
+            val angle = 90 - deg
+            println("angle: " + angle.toString()) 
+          }
+        }
+        WindMarkPointStyle.getCustomWindSymbolizer(sf,45.0)
+      }
       else sf.getDefaultRasterSymbolizer
     SLD.wrapSymbolizers(sym)
   }
@@ -255,7 +277,6 @@ class GeoTiffWriter extends Writer {
     
     coords.foreach { c => 
       val point = gfac.createPoint(c)
-      println("event point: " + point.toString())
       fbuilder.add(point)
       val f = fbuilder.buildFeature(null)
       fcol += f
@@ -289,7 +310,6 @@ class GeoTiffWriter extends Writer {
     
     coords.foreach { c => 
       val point = gfac.createPoint(c)
-      println("wind point: " + point.toString())
       fbuilder.add(point)
       val f = fbuilder.buildFeature(null)
       fcol += f
@@ -336,9 +356,9 @@ class GeoTiffWriter extends Writer {
     map.setTitle(ds.getName)
     //order is important when adding layers!!
     //the first function must be the image function!!
-    map.addLayer(layers(1))
-    map.addLayer(layers(0))
-    map.addLayer(layers(2))
+    map.addLayer(layers(1)) // the image
+    map.addLayer(layers(0)) // the wind
+    map.addLayer(layers(2)) // the events
     //layers.foreach(map.addLayer(_))
     
     map
@@ -385,6 +405,7 @@ class GeoTiffWriter extends Writer {
     writer.write(coverage, null)
     writer.dispose
     coverage.dispose(true)
+    map.dispose()
   }
   
   override def mimeType = "image/tif"
