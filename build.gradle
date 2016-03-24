@@ -8,16 +8,19 @@ repositories {
     maven {
       url "http://download.osgeo.org/webdav/geotools/"
     }
+    maven {
+      url "http://maven.geo-solutions.it"
+    }
     mavenCentral()
 }
 
 dependencies {
     compile project(":latis")
 
-	compile 'org.geotools:gt-geotiff:8.6'
-	compile 'org.geotools:gt-epsg-hsql:8.6'
-	compile 'org.geotools:gt-swing:8.6'
-	compile 'org.geotools:gt-image:8.6'
+	compile 'org.geotools:gt-geotiff:14.2'
+	compile 'org.geotools:gt-epsg-hsql:14.2'
+	compile 'org.geotools:gt-swing:14.2'
+	compile 'org.geotools:gt-image:14.2'
 
     compile fileTree(dir: 'lib', include: '*.jar')
 
