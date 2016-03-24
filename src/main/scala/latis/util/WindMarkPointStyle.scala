@@ -19,11 +19,13 @@ import org.geotools.renderer.style.TTFMarkFactory
 import org.geotools.renderer.style.WellKnownMarkFactory
 import org.geotools.renderer.style.ShapeMarkFactory
 import latis.dm.Function
+import latis.dm.Tuple
+
 
 
 object WindMarkPointStyle {
   
-  def getCustomWindSymbolizer(sf: StyleFactory,function: Function): PointSymbolizer = {
+  def getCustomWindSymbolizer(sf: StyleFactory,angle: Double): PointSymbolizer = {
     val filterFactory = CommonFactoryFinder.getFilterFactory
     
     // controls            color                                      line width
@@ -39,7 +41,7 @@ object WindMarkPointStyle {
     
     val opacity: Expression = null
     val size: Expression = filterFactory.literal(10) // controls the size of the arrow
-    val rotation: Expression = filterFactory.literal(45) // controls the rotation from north of the arrow
+    val rotation: Expression = filterFactory.literal(angle) // controls the rotation from north of the arrow
     val anchor: AnchorPoint = null
     val displacement: Displacement = null
     
