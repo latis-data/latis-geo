@@ -20,16 +20,21 @@ import org.geotools.renderer.style.WellKnownMarkFactory
 import org.geotools.renderer.style.ShapeMarkFactory
 import latis.dm.Function
 import latis.dm.Tuple
+import latis.dm.Sample
+import latis.dm.Real
+import latis.dm.Number
+import org.geotools.styling.Graphic
+import org.geotools.styling.StyleBuilder
 
 
 
 object WindMarkPointStyle {
   
-  def getCustomWindSymbolizer(sf: StyleFactory,angle: Double): PointSymbolizer = {
+  def getCustomWindSymbolizer(sf: StyleFactory, angle: Double): PointSymbolizer = {
     val filterFactory = CommonFactoryFinder.getFilterFactory
-    
+    val sb = new StyleBuilder
     // controls            color                                      line width
-    val stroke = sf.stroke(filterFactory.literal(Color.ORANGE), null, filterFactory.literal(.5), null, null, null, null)
+    val stroke = sf.stroke(filterFactory.literal(Color.CYAN), null, filterFactory.literal(.5), null, null, null, null)
     // controls              color opacity (0 to 1)
     val fill = sf.fill(null, null, null) // no fill so we get open arrows
     
@@ -40,9 +45,9 @@ object WindMarkPointStyle {
     val symbols: java.util.List[GraphicalSymbol] = sl.asJava
     
     val opacity: Expression = null
-    val size: Expression = filterFactory.literal(10) // controls the size of the arrow
+    val size: Expression = filterFactory.literal(20) // controls the size of the arrow
     val rotation: Expression = filterFactory.literal(angle) // controls the rotation from north of the arrow
-    val anchor: AnchorPoint = null
+    val anchor: AnchorPoint = null //sb.createAnchorPoint(filterFactory.literal(36.5), filterFactory.literal(122.5))
     val displacement: Displacement = null
     
     val arrow = sf.graphic(symbols, opacity, size, rotation, anchor, displacement)
@@ -50,4 +55,5 @@ object WindMarkPointStyle {
     
     pointSymbolizer
   }
+  
 }
