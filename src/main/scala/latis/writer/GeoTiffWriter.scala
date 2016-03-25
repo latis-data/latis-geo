@@ -145,9 +145,16 @@ class GeoTiffWriter extends Writer {
     val (lat1, lon1) = getLatLon(bounds._1)
     val (lat2, lon2) = getLatLon(bounds._2)
     
-    //handle different axis orderings of the crs
-    val cs = crs.getCoordinateSystem
+//    //handle different axis orderings of the crs
+//    val cs = crs.getCoordinateSystem
+//    println(cs.getAxis(0).getDirection)
+//    (cs.getAxis(0).getDirection, cs.getAxis(1).getDirection) match {
+//      case (EAST, NORTH) => new ReferencedEnvelope(lon1, lon2, lat1, lat2, crs)
+//      case (NORTH, EAST) => new ReferencedEnvelope(lat1, lat2, lon1, lon2, crs)
+//    }
     
+    //Xs then Ys of the image dataset
+    //even though they are the different order that the CRS.
     new ReferencedEnvelope(lon1, lon2, lat1, lat2, crs)
   }
   
@@ -215,9 +222,14 @@ class GeoTiffWriter extends Writer {
     val fbuilder = new SimpleFeatureBuilder(ftype)
     val gfac = JTSFactoryFinder.getGeometryFactory
     
+    val orderAxes = (cs.getAxis(0).getDirection, cs.getAxis(1).getDirection) match {
+      case (EAST, NORTH) => (lat: Double, lon: Double) => new Coordinate(lon, lat)
+      case (NORTH, EAST) => (lat: Double, lon: Double) => new Coordinate(lat, lon)
+    }
+    
     val coords = function.iterator.map(s => {
       val (lat, lon) = getLatLon(s)
-      new Coordinate(lon, lat)
+      orderAxes(lat,lon)
     })
     
     val line = gfac.createLineString(coords.toArray)
@@ -246,9 +258,14 @@ class GeoTiffWriter extends Writer {
     val fbuilder = new SimpleFeatureBuilder(ftype)
     val gfac = JTSFactoryFinder.getGeometryFactory
     
+    val orderAxes = (cs.getAxis(0).getDirection, cs.getAxis(1).getDirection) match {
+      case (EAST, NORTH) => (lat: Double, lon: Double) => new Coordinate(lon, lat)
+      case (NORTH, EAST) => (lat: Double, lon: Double) => new Coordinate(lat, lon)
+    }
+    
     val coords = function.iterator.map(s => {
       val (lat, lon) = getLatLon(s)
-      new Coordinate(lon, lat)
+      orderAxes(lat,lon)
     })
     
     coords.foreach { c => 
@@ -285,10 +302,13 @@ class GeoTiffWriter extends Writer {
   def getMap(ds: Dataset): MapContent = {
     val layers = ds match {
       case Dataset(f: Function) => Seq(getLayer(f))
-      case Dataset(Tuple(vs)) => vs.flatMap(v => v match {
-        case f: Function => Some(getLayer(f))
-        case _ => None
-      })
+      case Dataset(Tuple(vs)) => {
+        Seq(getLayer(vs.head.asInstanceOf[Function]))
+      }
+//        vs.flatMap(v => v match {
+//        case f: Function => Some(getLayer(f))
+//        case _ => None
+//      })
     }
     
     val map = new MapContent()
