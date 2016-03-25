@@ -6,16 +6,17 @@ import java.awt.image.DataBuffer
 import java.awt.image.PixelInterleavedSampleModel
 import java.awt.image.Raster
 import java.awt.image.WritableRaster
-import java.io.File
-import scala.collection.JavaConverters._
+
 import scala.collection.JavaConversions.bufferAsJavaList
 import scala.collection.mutable.ListBuffer
+
 import org.geotools.coverage.CoverageFactoryFinder
 import org.geotools.coverage.grid.GridCoverage2D
 import org.geotools.data.DataUtilities
 import org.geotools.data.collection.ListFeatureCollection
 import org.geotools.data.simple.SimpleFeatureCollection
 import org.geotools.factory.CommonFactoryFinder
+import org.geotools.factory.Hints
 import org.geotools.feature.simple.SimpleFeatureBuilder
 import org.geotools.geometry.jts.JTSFactoryFinder
 import org.geotools.geometry.jts.ReferencedEnvelope
@@ -32,15 +33,17 @@ import org.opengis.geometry.Envelope
 import org.opengis.referencing.crs.CoordinateReferenceSystem
 import org.opengis.referencing.cs.AxisDirection.EAST
 import org.opengis.referencing.cs.AxisDirection.NORTH
+
 import com.vividsolutions.jts.geom.Coordinate
+
 import latis.dm.Dataset
 import latis.dm.Function
 import latis.dm.Number
 import latis.dm.Sample
 import latis.dm.Tuple
+import latis.util.CircleMarkPointStyle
 import latis.util.ColorModels
 import latis.util.iterator.PeekIterator
-import latis.util.CircleMarkPointStyle
 
 /**
  * Uses Geotools to write a Geotiff image. The Dataset to be written must be modeled 
@@ -58,6 +61,8 @@ import latis.util.CircleMarkPointStyle
  * in the Metadata and will default to the code 4326 if no "epsg" Metadata is specified. 
  */
 class GeoTiffWriter extends Writer {
+  
+  Hints.putSystemDefault(Hints.FORCE_LONGITUDE_FIRST_AXIS_ORDER, true)
   
   /**
    * Get the CoordinateReferenceSystem defined by epsg code
@@ -145,17 +150,13 @@ class GeoTiffWriter extends Writer {
     val (lat1, lon1) = getLatLon(bounds._1)
     val (lat2, lon2) = getLatLon(bounds._2)
     
-//    //handle different axis orderings of the crs
-//    val cs = crs.getCoordinateSystem
-//    println(cs.getAxis(0).getDirection)
-//    (cs.getAxis(0).getDirection, cs.getAxis(1).getDirection) match {
-//      case (EAST, NORTH) => new ReferencedEnvelope(lon1, lon2, lat1, lat2, crs)
-//      case (NORTH, EAST) => new ReferencedEnvelope(lat1, lat2, lon1, lon2, crs)
-//    }
-    
+    //Get the lon/lat bounding box
     //Xs then Ys of the image dataset
-    //even though they are the different order that the CRS.
-    new ReferencedEnvelope(lon1, lon2, lat1, lat2, crs)
+    val minLon = Math.min(lon1, lon2)
+    val maxLon = Math.max(lon1, lon2)
+    val minLat = Math.min(lat1, lat2)
+    val maxLat = Math.max(lat1, lat2)
+    new ReferencedEnvelope(minLon, maxLon, minLat, maxLat, crs)
   }
   
   /**
@@ -306,7 +307,6 @@ class GeoTiffWriter extends Writer {
         case f: Function => Some(getLayer(f))
         case _ => None
       })
-      //Seq(getLayer(vs.head.asInstanceOf[Function]))
     }
     
     val map = new MapContent()
