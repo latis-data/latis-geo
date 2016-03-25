@@ -302,13 +302,11 @@ class GeoTiffWriter extends Writer {
   def getMap(ds: Dataset): MapContent = {
     val layers = ds match {
       case Dataset(f: Function) => Seq(getLayer(f))
-      case Dataset(Tuple(vs)) => {
-        Seq(getLayer(vs.head.asInstanceOf[Function]))
-      }
-//        vs.flatMap(v => v match {
-//        case f: Function => Some(getLayer(f))
-//        case _ => None
-//      })
+      case Dataset(Tuple(vs)) => vs.flatMap(v => v match {
+        case f: Function => Some(getLayer(f))
+        case _ => None
+      })
+      //Seq(getLayer(vs.head.asInstanceOf[Function]))
     }
     
     val map = new MapContent()
