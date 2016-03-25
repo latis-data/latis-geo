@@ -43,6 +43,9 @@ import latis.util.ColorModels
 import latis.util.iterator.PeekIterator
 import latis.util.CircleMarkPointStyle
 import latis.util.WindMarkPointStyle
+import org.geotools.feature.FeatureCollection
+import org.geotools.factory.Hints
+import org.geotools.referencing.ReferencingFactoryFinder
 
 /**
  * Uses Geotools to write a Geotiff image. The Dataset to be written must be modeled 
@@ -195,28 +198,6 @@ class GeoTiffWriter extends Writer {
     val sf = CommonFactoryFinder.getStyleFactory
     val sym = if(function.hasName("line")) sf.getDefaultLineSymbolizer
       else if(function.hasName("points")) CircleMarkPointStyle.getCustomPointCircleSymbolizer(sf)
-      else if(function.hasName("wind")) {
-        println("getting wind vectors")
-        function.iterator.foreach { x => {
-            val (u,v) = (x.range.findVariableByName("u10m"),x.range.findVariableByName("u10m")) match {
-              case (Some(Real(u)), Some(Real(v))) => (u,v)
-            }
-            println("(u,v) = (" + u.toString +","+ v.toString +")")
-            // normalizing u & v
-            val norm = Math.sqrt(u*u + v*v)
-            // wind angle
-            val atan = Math.atan2(u/norm, v/norm)
-            // to degrees
-            val deg = atan * 180/Math.PI
-            // direction wind is coming from
-            //val dir = deg + 180
-            // get angle from y-axis
-            val angle = 90 - deg
-            println("angle: " + angle.toString()) 
-          }
-        }
-        WindMarkPointStyle.getCustomWindSymbolizer(sf,45.0)
-      }
       else sf.getDefaultRasterSymbolizer
     SLD.wrapSymbolizers(sym)
   }
@@ -284,39 +265,6 @@ class GeoTiffWriter extends Writer {
     new ListFeatureCollection(ftype, fcol)
   }
   
-    /**
-   * Makes a FeatureCollection containing an Point for each 
-   * sample in the function.
-   */
-  def getWindCollection(function: Function): SimpleFeatureCollection = {
-    val crs = getCrs(function)
-    val cs = crs.getCoordinateSystem
-    
-    val srid = function.getMetadata("epsg") match {
-      case Some("4979") => "4326" //make it 2D
-      case Some(s) => s
-      case None => "4326"
-    }
-    
-    val ftype = DataUtilities.createType("point", s"point:Point:srid=$srid")
-    val fcol = ListBuffer[SimpleFeature]()
-    val fbuilder = new SimpleFeatureBuilder(ftype)
-    val gfac = JTSFactoryFinder.getGeometryFactory
-    
-    val coords = function.iterator.map(s => {
-      val (lat, lon) = getLatLon(s)
-      new Coordinate(lon, lat)
-    })
-    
-    coords.foreach { c => 
-      val point = gfac.createPoint(c)
-      fbuilder.add(point)
-      val f = fbuilder.buildFeature(null)
-      fcol += f
-    }
-    new ListFeatureCollection(ftype, fcol)
-  }
-  
   /**
    * Constructs a layer using a coverage and a style.
    */
@@ -329,10 +277,6 @@ class GeoTiffWriter extends Writer {
       val fcol = getPointCollection(function)
       val style = getStyle(function)
       new FeatureLayer(fcol, style)
-    } else if(function.hasName("wind")) {
-      val fcol = getWindCollection(function)
-      val style = getStyle(function)
-      new FeatureLayer(fcol, style)
     } else {
       val coverage = getCoverage(function)
       val style = getStyle(function)
@@ -340,10 +284,51 @@ class GeoTiffWriter extends Writer {
     }
   }
   
+  def getWindAngle(u: Double, v: Double): Double = {
+    // normalizing u & v
+    val norm = Math.sqrt(u*u + v*v)
+    // wind angle
+    val atan = Math.atan2(u/norm, v/norm)
+    // to degrees
+    val deg = atan * 180/Math.PI
+    // get clockwise angle from y-axis
+    val angle = 90 - deg
+    angle
+  }
+  
+  def getWinArrowLayers(function: Function): Iterator[Layer] = {
+    // build a layer for each sample in the wind function
+    function.iterator.map { x => 
+      val (lon,lat) = (x.findVariableByName("longitude"), x.findVariableByName("latitude")) match {
+        case (Some(Real(lat)), Some(Real(lon))) => (lat,lon)
+        }
+      val (u,v) = (x.range.findVariableByName("u10m"),x.range.findVariableByName("v10m")) match {
+        case (Some(Real(u)), Some(Real(v))) => (u,v)
+        }
+      val angle = getWindAngle(u,v)
+          
+      val ftype = DataUtilities.createType("point", "point:Point:srid=4326")
+      val fbuilder = new SimpleFeatureBuilder(ftype)
+      val gfac = JTSFactoryFinder.getGeometryFactory
+      val point = gfac.createPoint(new Coordinate(lon, lat))
+      fbuilder.add(point)
+      val f = fbuilder.buildFeature(null)
+      val fcol = new ListFeatureCollection(ftype, List(f).asJava)
+          
+      val sf = CommonFactoryFinder.getStyleFactory
+      val arrow = WindMarkPointStyle.getCustomWindSymbolizer(sf,angle)
+      val style = SLD.wrapSymbolizers(arrow)
+          
+      val layer = new FeatureLayer(fcol, style)
+      layer
+    }
+  }
+
   /**
    * Map each function in a dataset to a layer in a MapContent. 
    */
   def getMap(ds: Dataset): MapContent = {
+    /*
     val layers = ds match {
       case Dataset(f: Function) => Seq(getLayer(f))
       case Dataset(Tuple(vs)) => vs.flatMap(v => v match {
@@ -351,16 +336,36 @@ class GeoTiffWriter extends Writer {
         case _ => None
       })
     }
+    * 
+    */
     
     val map = new MapContent()
     map.setTitle(ds.getName)
-    //order is important when adding layers!!
-    //the first function must be the image function!!
-    map.addLayer(layers(1)) // the image
-    map.addLayer(layers(0)) // the wind
-    map.addLayer(layers(2)) // the events
-    //layers.foreach(map.addLayer(_))
     
+    // layer order is important!!
+    val imageLayer = ds match {
+      case Dataset(Tuple(t)) => t(1) match {
+        case f: Function => getLayer(f)
+      }
+    }
+    map.addLayer(imageLayer)
+    
+    val eventLayer = ds match {
+      case Dataset(Tuple(t)) => t(2) match {
+        case f: Function => getLayer(f)
+      }
+    }
+    map.addLayer(eventLayer)
+    
+   val windfunc = ds match {
+     case Dataset(Tuple(t)) => t(0) match {
+       case f: Function => f
+       }
+     }
+    
+   val windLayer = getWinArrowLayers(windfunc)
+   windLayer.foreach(map.addLayer(_))
+   
     map
   }
   
