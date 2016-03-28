@@ -41,9 +41,14 @@ import latis.dm.Function
 import latis.dm.Number
 import latis.dm.Sample
 import latis.dm.Tuple
-import latis.util.CircleMarkPointStyle
+import latis.dm.Real
 import latis.util.ColorModels
 import latis.util.iterator.PeekIterator
+import latis.util.CircleMarkPointStyle
+import latis.util.WindMarkPointStyle
+import org.geotools.feature.FeatureCollection
+import org.geotools.factory.Hints
+import org.geotools.referencing.ReferencingFactoryFinder
 
 /**
  * Uses Geotools to write a Geotiff image. The Dataset to be written must be modeled 
@@ -297,10 +302,51 @@ class GeoTiffWriter extends Writer {
     }
   }
   
+  def getWindAngle(u: Double, v: Double): Double = {
+    // normalizing u & v
+    val norm = Math.sqrt(u*u + v*v)
+    // wind angle
+    val atan = Math.atan2(u/norm, v/norm)
+    // to degrees
+    val deg = atan * 180/Math.PI
+    // get clockwise angle from y-axis
+    val angle = 90 - deg
+    angle
+  }
+  
+  def getWinArrowLayers(function: Function): Iterator[Layer] = {
+    // build a layer for each sample in the wind function
+    function.iterator.map { x => 
+      val (lon,lat) = (x.findVariableByName("longitude"), x.findVariableByName("latitude")) match {
+        case (Some(Real(lat)), Some(Real(lon))) => (lat,lon)
+        }
+      val (u,v) = (x.range.findVariableByName("u10m"),x.range.findVariableByName("v10m")) match {
+        case (Some(Real(u)), Some(Real(v))) => (u,v)
+        }
+      val angle = getWindAngle(u,v)
+          
+      val ftype = DataUtilities.createType("point", "point:Point:srid=4326")
+      val fbuilder = new SimpleFeatureBuilder(ftype)
+      val gfac = JTSFactoryFinder.getGeometryFactory
+      val point = gfac.createPoint(new Coordinate(lon, lat))
+      fbuilder.add(point)
+      val f = fbuilder.buildFeature(null)
+      val fcol = new ListFeatureCollection(ftype, List(f).asJava)
+          
+      val sf = CommonFactoryFinder.getStyleFactory
+      val arrow = WindMarkPointStyle.getCustomWindSymbolizer(sf,angle)
+      val style = SLD.wrapSymbolizers(arrow)
+          
+      val layer = new FeatureLayer(fcol, style)
+      layer
+    }
+  }
+
   /**
    * Map each function in a dataset to a layer in a MapContent. 
    */
   def getMap(ds: Dataset): MapContent = {
+    /*
     val layers = ds match {
       case Dataset(f: Function) => Seq(getLayer(f))
       case Dataset(Tuple(vs)) => vs.flatMap(v => v match {
@@ -308,12 +354,36 @@ class GeoTiffWriter extends Writer {
         case _ => None
       })
     }
+    * 
+    */
     
     val map = new MapContent()
     map.setTitle(ds.getName)
     
-    layers.foreach(map.addLayer(_))
+    // layer order is important!!
+    val imageLayer = ds match {
+      case Dataset(Tuple(t)) => t(1) match {
+        case f: Function => getLayer(f)
+      }
+    }
+    map.addLayer(imageLayer)
     
+    val eventLayer = ds match {
+      case Dataset(Tuple(t)) => t(2) match {
+        case f: Function => getLayer(f)
+      }
+    }
+    map.addLayer(eventLayer)
+    
+   val windfunc = ds match {
+     case Dataset(Tuple(t)) => t(0) match {
+       case f: Function => f
+       }
+     }
+    
+   val windLayer = getWinArrowLayers(windfunc)
+   windLayer.foreach(map.addLayer(_))
+   
     map
   }
   
@@ -326,9 +396,16 @@ class GeoTiffWriter extends Writer {
     val map = getMap(ds)
     
     //the first function must have gridded data with an appropriate width and height
-    val f = ds.unwrap.findFunction.get
-    
-    val (width, height, bands) = getDimensions(f)
+    //ugh, is there a way to ask the dataset to give us the function named "image" instead of doing this?
+    val f2 = ds match {
+      case Dataset(t) => t match {
+        case Tuple(f) => f(1) match {
+          case i: Function => i
+        }
+      }
+    }
+    //val f = ds.unwrap.findFunction.get
+    val (width, height, bands) = getDimensions(f2)
     
     //create the image that the dataset will be written to.
     val image = new BufferedImage(width, height, BufferedImage.TYPE_3BYTE_BGR)
@@ -351,6 +428,7 @@ class GeoTiffWriter extends Writer {
     writer.write(coverage, null)
     writer.dispose
     coverage.dispose(true)
+    map.dispose()
   }
   
   override def mimeType = "image/tif"

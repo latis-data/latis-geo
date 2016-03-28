@@ -15,7 +15,7 @@ import org.geotools.styling.Displacement
 import org.geotools.styling.PointSymbolizer
 import org.geotools.styling.StyleFactory
 import org.geotools.styling.StyleFactoryFinder
-import org.geotools.filter.FilterFactoryFinder
+import org.geotools.factory.CommonFactoryFinder
 
 import scala.collection.JavaConverters._
 
@@ -23,7 +23,8 @@ import scala.collection.JavaConverters._
 object CircleMarkPointStyle {
   
   def getCustomPointCircleSymbolizer(sf: StyleFactory): PointSymbolizer = {
-    val filterFactory = FilterFactoryFinder.createFilterFactory
+    
+    val filterFactory = CommonFactoryFinder.getFilterFactory
     
     // controls            color                                      line width
     val stroke = sf.stroke(filterFactory.literal(Color.ORANGE), null, filterFactory.literal(.5), null, null, null, null)
