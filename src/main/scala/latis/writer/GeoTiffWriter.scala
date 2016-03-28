@@ -331,7 +331,7 @@ class GeoTiffWriter extends Writer {
       val point = gfac.createPoint(new Coordinate(lon, lat))
       fbuilder.add(point)
       val f = fbuilder.buildFeature(null)
-      val fcol = new ListFeatureCollection(ftype, List(f).asJava)
+      val fcol = new ListFeatureCollection(ftype, ListBuffer(f))
           
       val sf = CommonFactoryFinder.getStyleFactory
       val arrow = WindMarkPointStyle.getCustomWindSymbolizer(sf,angle)
