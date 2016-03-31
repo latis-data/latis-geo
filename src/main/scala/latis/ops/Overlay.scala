@@ -30,8 +30,16 @@ object Overlay extends OperationFactory {
   def apply(ds: Dataset): Overlay = new Overlay(ds)
   
   def apply(name: String): Overlay = {
-    val ds = DatasetAccessor.fromName(name).getDataset
-    Overlay(ds)
+    val reader = DatasetAccessor.fromName(name)
+    try {
+      val ds = reader.getDataset.force
+      Overlay(ds)
+    } finally {
+      reader.close()
+    }
+    
+    
+    
   }
   
   override def apply(args: Seq[String]) = args.length match {
