@@ -11,6 +11,7 @@ import latis.reader.DatasetAccessor
 import latis.dm.Dataset
 import latis.dm.Function
 
+
 class TestWindMarkPointStyle {
   var sf: StyleFactory = null
   var ff: FilterFactory = null
@@ -25,13 +26,17 @@ class TestWindMarkPointStyle {
   
   /*
    * basic test to make sure style created has set size 10
+   * this test will fail because we now try to look up a wind
+   * scalar in latis.properties file. we need to bring mockito
+   * to mock the request to that property
    */
   //@Test
   def circleMarkHasSizeTen {
-    val ds = DatasetAccessor.fromName("gfsanl_wind_files").getDataset()
-    val f = ds match {
-      case Dataset(f: Function) => f
-    }
+    //val ds = DatasetAccessor.fromName("gfsanl_wind_files").getDataset()
+    //val f = ds match {
+    //  case Dataset(f: Function) => f
+    //}
+    
     val angle = 45.0
     val magnitued = 0
     val style = WindMarkPointStyle.getCustomWindSymbolizer(sf,angle,magnitued)
