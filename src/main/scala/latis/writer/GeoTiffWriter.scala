@@ -429,6 +429,8 @@ class GeoTiffWriter extends Writer {
     writer.dispose
     coverage.dispose(true)
     map.dispose()
+    image.flush()
+    gr.dispose()
   }
   
   override def mimeType = "image/tif"
