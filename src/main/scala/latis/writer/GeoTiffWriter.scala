@@ -302,9 +302,13 @@ class GeoTiffWriter extends Writer {
     }
   }
   
+  def getWindMagnitued(u: Double, v: Double): Double = {
+    Math.sqrt(u*u + v*v)
+  }
+  
   def getWindAngle(u: Double, v: Double): Double = {
     // normalizing u & v
-    val norm = Math.sqrt(u*u + v*v)
+    val norm = getWindMagnitued(u,v)
     // wind angle
     val atan = Math.atan2(u/norm, v/norm)
     // to degrees
@@ -332,9 +336,8 @@ class GeoTiffWriter extends Writer {
       fbuilder.add(point)
       val f = fbuilder.buildFeature(null)
       val fcol = new ListFeatureCollection(ftype, ListBuffer(f))
-          
       val sf = CommonFactoryFinder.getStyleFactory
-      val arrow = WindMarkPointStyle.getCustomWindSymbolizer(sf,angle)
+      val arrow = WindMarkPointStyle.getCustomWindSymbolizer(sf,angle,getWindMagnitued(u,v))
       val style = SLD.wrapSymbolizers(arrow)
           
       val layer = new FeatureLayer(fcol, style)
