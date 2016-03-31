@@ -32,7 +32,9 @@ class TestWindMarkPointStyle {
     val f = ds match {
       case Dataset(f: Function) => f
     }
-    val style = WindMarkPointStyle.getCustomWindSymbolizer(sf,45.0)
+    val angle = 45.0
+    val magnitued = 0
+    val style = WindMarkPointStyle.getCustomWindSymbolizer(sf,angle,magnitued)
     val size = ff.literal(10)
     val rotation = ff.literal(45.0)
     assertEquals(size, style.getGraphic.getSize)
