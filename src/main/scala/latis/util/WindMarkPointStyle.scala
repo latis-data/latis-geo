@@ -30,7 +30,7 @@ import org.geotools.styling.StyleBuilder
 
 object WindMarkPointStyle {
   
-  def getCustomWindSymbolizer(sf: StyleFactory, angle: Double): PointSymbolizer = {
+  def getCustomWindSymbolizer(sf: StyleFactory, angle: Double, magnitued: Double): PointSymbolizer = {
     val filterFactory = CommonFactoryFinder.getFilterFactory
     val sb = new StyleBuilder
     // controls            color                                      line width
@@ -45,7 +45,13 @@ object WindMarkPointStyle {
     val symbols: java.util.List[GraphicalSymbol] = sl.asJava
     
     val opacity: Expression = null
-    val size: Expression = filterFactory.literal(20) // controls the size of the arrow
+    
+    val windscalar = LatisProperties.get("noms.wind.scalar") match {
+      case Some(s) => s.toInt
+      case None => throw new Error("The noms.wind.scalar property is undefined.")
+    }
+    val scale = magnitued * windscalar
+    val size: Expression = filterFactory.literal(scale) // controls the size of the arrow
     val rotation: Expression = filterFactory.literal(angle) // controls the rotation from north of the arrow
     val anchor: AnchorPoint = null //sb.createAnchorPoint(filterFactory.literal(36.5), filterFactory.literal(122.5))
     val displacement: Displacement = null
