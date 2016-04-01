@@ -27,10 +27,9 @@ import org.geotools.styling.Graphic
 import org.geotools.styling.StyleBuilder
 
 
-
 object WindMarkPointStyle {
   
-  def getCustomWindSymbolizer(sf: StyleFactory, angle: Double): PointSymbolizer = {
+  def getCustomWindSymbolizer(sf: StyleFactory, angle: Double, speed: Double): PointSymbolizer = {
     val filterFactory = CommonFactoryFinder.getFilterFactory
     val sb = new StyleBuilder
     // controls            color                                      line width
@@ -38,14 +37,19 @@ object WindMarkPointStyle {
     // controls              color opacity (0 to 1)
     val fill = sf.fill(null, null, null) // no fill so we get open arrows
     
-    val mark = sf.mark(filterFactory.literal("extshape://arrow"), fill, stroke)
+    val mark = sf.mark(filterFactory.literal("windbarbs://default("+ speed +")[kts]"), fill, stroke)
     
     // needed to do this since sf.graphic() below requries a java list
     val sl = scala.collection.mutable.ListBuffer[GraphicalSymbol](mark)
     val symbols: java.util.List[GraphicalSymbol] = sl.asJava
     
     val opacity: Expression = null
-    val size: Expression = filterFactory.literal(20) // controls the size of the arrow
+    
+    val windbarbsize = LatisProperties.get("noms.wind.scalar") match {
+      case Some(s) => s.toInt
+      case None => throw new Error("The noms.wind.scalar property is undefined.")
+    }
+    val size: Expression = filterFactory.literal(windbarbsize) // controls the size of the arrow
     val rotation: Expression = filterFactory.literal(angle) // controls the rotation from north of the arrow
     val anchor: AnchorPoint = null //sb.createAnchorPoint(filterFactory.literal(36.5), filterFactory.literal(122.5))
     val displacement: Displacement = null

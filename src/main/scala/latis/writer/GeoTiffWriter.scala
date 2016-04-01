@@ -302,16 +302,22 @@ class GeoTiffWriter extends Writer {
     }
   }
   
+  def getWindMagnitued(u: Double, v: Double): Double = {
+    // convert m/s to knots
+    Math.sqrt(u*u + v*v) * 1.943844
+  }
+  
   def getWindAngle(u: Double, v: Double): Double = {
     // normalizing u & v
-    val norm = Math.sqrt(u*u + v*v)
+    val norm = getWindMagnitued(u,v)
     // wind angle
     val atan = Math.atan2(u/norm, v/norm)
     // to degrees
     val deg = atan * 180/Math.PI
     // get clockwise angle from y-axis
     val angle = 90 - deg
-    angle
+    // rotate barb to point in the direction winds is coming from
+    angle + 180
   }
   
   def getWinArrowLayers(function: Function): Iterator[Layer] = {
@@ -332,9 +338,8 @@ class GeoTiffWriter extends Writer {
       fbuilder.add(point)
       val f = fbuilder.buildFeature(null)
       val fcol = new ListFeatureCollection(ftype, ListBuffer(f))
-          
       val sf = CommonFactoryFinder.getStyleFactory
-      val arrow = WindMarkPointStyle.getCustomWindSymbolizer(sf,angle)
+      val arrow = WindMarkPointStyle.getCustomWindSymbolizer(sf,angle,getWindMagnitued(u,v))
       val style = SLD.wrapSymbolizers(arrow)
           
       val layer = new FeatureLayer(fcol, style)
