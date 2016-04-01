@@ -303,7 +303,8 @@ class GeoTiffWriter extends Writer {
   }
   
   def getWindMagnitued(u: Double, v: Double): Double = {
-    Math.sqrt(u*u + v*v)
+    // convert m/s to knots
+    Math.sqrt(u*u + v*v) * 1.943844
   }
   
   def getWindAngle(u: Double, v: Double): Double = {
@@ -315,7 +316,8 @@ class GeoTiffWriter extends Writer {
     val deg = atan * 180/Math.PI
     // get clockwise angle from y-axis
     val angle = 90 - deg
-    angle
+    // rotate barb to point in the direction winds is coming from
+    angle + 180
   }
   
   def getWinArrowLayers(function: Function): Iterator[Layer] = {
