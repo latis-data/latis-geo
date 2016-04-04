@@ -286,30 +286,34 @@ class GeoTiffWriter extends Writer {
   /**
    * Constructs a layer using a coverage and a style.
    */
-  def getLayer(function: Function): Layer = {
+  def getLayer(function: Function): Seq[Layer] = {
     if(function.hasName("line")) {
       val fcol = getLineCollection(function)
       val style = getStyle(function)
-      new FeatureLayer(fcol, style)
+      Seq(new FeatureLayer(fcol, style))
     } else if(function.hasName("points")) {
       val fcol = getPointCollection(function)
       val style = getStyle(function)
-      new FeatureLayer(fcol, style)
-    } else {
+      Seq(new FeatureLayer(fcol, style))
+    } else if(function.hasName("image")) {
       val coverage = getCoverage(function)
       val style = getStyle(function)
-      new GridCoverageLayer(coverage, style)
+      Seq(new GridCoverageLayer(coverage, style))
+    } else if(function.hasName("wind")) {
+      getWinArrowLayers(function).toSeq
+    } else {
+      throw new Exception("Couldn't apply a layer to function: " + function.getName)
     }
   }
   
-  def getWindMagnitued(u: Double, v: Double): Double = {
-    // convert m/s to knots
-    Math.sqrt(u*u + v*v) * 1.943844
+  def getWindNorm(u: Double, v: Double): Double = {
+    // speed is in m/s
+    Math.sqrt(u*u + v*v) 
   }
   
   def getWindAngle(u: Double, v: Double): Double = {
-    // normalizing u & v
-    val norm = getWindMagnitued(u,v)
+    // normalizing u & v ie. speed in knots
+    val norm = getWindNorm(u,v) * 1.943844
     // wind angle
     val atan = Math.atan2(u/norm, v/norm)
     // to degrees
@@ -339,7 +343,8 @@ class GeoTiffWriter extends Writer {
       val f = fbuilder.buildFeature(null)
       val fcol = new ListFeatureCollection(ftype, ListBuffer(f))
       val sf = CommonFactoryFinder.getStyleFactory
-      val arrow = WindMarkPointStyle.getCustomWindSymbolizer(sf,angle,getWindMagnitued(u,v))
+      val windspeed = getWindNorm(u,v) * 1.943844 // wind speed in knots
+      val arrow = WindMarkPointStyle.getCustomWindSymbolizer(sf,angle,windspeed)
       val style = SLD.wrapSymbolizers(arrow)
           
       val layer = new FeatureLayer(fcol, style)
@@ -351,43 +356,19 @@ class GeoTiffWriter extends Writer {
    * Map each function in a dataset to a layer in a MapContent. 
    */
   def getMap(ds: Dataset): MapContent = {
-    /*
+    
     val layers = ds match {
-      case Dataset(f: Function) => Seq(getLayer(f))
       case Dataset(Tuple(vs)) => vs.flatMap(v => v match {
         case f: Function => Some(getLayer(f))
         case _ => None
       })
     }
-    * 
-    */
     
     val map = new MapContent()
     map.setTitle(ds.getName)
-    
-    // layer order is important!!
-    val imageLayer = ds match {
-      case Dataset(Tuple(t)) => t(1) match {
-        case f: Function => getLayer(f)
-      }
-    }
-    map.addLayer(imageLayer)
-    
-    val eventLayer = ds match {
-      case Dataset(Tuple(t)) => t(2) match {
-        case f: Function => getLayer(f)
-      }
-    }
-    map.addLayer(eventLayer)
-    
-   val windfunc = ds match {
-     case Dataset(Tuple(t)) => t(0) match {
-       case f: Function => f
-       }
-     }
-    
-   val windLayer = getWinArrowLayers(windfunc)
-   windLayer.foreach(map.addLayer(_))
+
+    val lf = layers.flatten
+    lf.foreach { x => map.addLayer(x)}
    
     map
   }
@@ -400,17 +381,9 @@ class GeoTiffWriter extends Writer {
     val ds = dataset.force
     val map = getMap(ds)
     
-    //the first function must have gridded data with an appropriate width and height
-    //ugh, is there a way to ask the dataset to give us the function named "image" instead of doing this?
-    val f2 = ds match {
-      case Dataset(t) => t match {
-        case Tuple(f) => f(1) match {
-          case i: Function => i
-        }
-      }
-    }
-    //val f = ds.unwrap.findFunction.get
-    val (width, height, bands) = getDimensions(f2)
+    //the image function must have gridded data with an appropriate width and height
+    val imagefunc = ds.findVariableByName("image").get.asInstanceOf[Function]
+    val (width, height, bands) = getDimensions(imagefunc)
     
     //create the image that the dataset will be written to.
     val image = new BufferedImage(width, height, BufferedImage.TYPE_3BYTE_BGR)
