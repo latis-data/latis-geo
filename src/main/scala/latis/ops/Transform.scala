@@ -14,45 +14,62 @@ import latis.dm.Variable
 import latis.metadata.Metadata
 import latis.util.iterator.MappingIterator
 import org.geotools.factory.Hints
+import org.opengis.referencing.crs.GeocentricCRS
+import org.opengis.referencing.crs.GeographicCRS
 
 /**
  * Transform from ECEF to WGS84 3D.
  */
-class Transform extends Operation {
+class Transform(target: String = "4979") extends Operation {
   
   Hints.putSystemDefault(Hints.FORCE_LONGITUDE_FIRST_AXIS_ORDER, true)
   
-  val sourceCRS: CoordinateReferenceSystem = DefaultGeocentricCRS.CARTESIAN //EPSG:4978
-  val targetCRS: CoordinateReferenceSystem = CRS.decode("epsg:4979") //WGS84 3D
+  val sourceCRS: CoordinateReferenceSystem = null
+  val targetCRS: CoordinateReferenceSystem = CRS.decode(s"epsg:$target") //WGS84 3D
   
   lazy val transform = CRS.findMathTransform(sourceCRS, targetCRS)
   
-  //Note, applies to any tuple with 3 Numbers.
+  //Note, applies to any tuple with 2/3 Numbers.
   //TODO: match name or metadata convention for geolocation
-  override def applyToTuple(tuple: Tuple) = tuple match {
-    case Tuple(Seq(Number(x), Number(y), Number(z))) => {
-      //println(CRS.getAxisOrder(sourceCRS)) //INAPPLICABLE
-      //println(CRS.getAxisOrder(targetCRS)) //NORTH_EAST
+  override def applyToTuple(tuple: Tuple): Option[Variable] = {
+    if(sourceCRS == null) super.applyToTuple(tuple)
+    else {
+      val src = (sourceCRS.getCoordinateSystem.getDimension, tuple) match {
+        case (2, Tuple(Seq(Number(x), Number(y)))) => new Coordinate(x,y)
+        case (3, Tuple(Seq(Number(x), Number(y), Number(z)))) => new Coordinate(x,y,z)
+        case _ => return super.applyToTuple(tuple) //presumably some other Tuple in the dataset
+      }
+      val dst = JTS.transform(src, new Coordinate(), transform)
       
-      val coord = new Coordinate(x,y,z)
-      val tcoord = JTS.transform(coord, null, transform)
-      val tup = Tuple(Real(Metadata("longitude"),tcoord.x), 
-                      Real(Metadata("latitude"), tcoord.y), 
-                      Real(Metadata("altitude"), tcoord.z))
-      Some(tup)
+      val vals = dst.z match {
+        case Double.NaN => Seq(dst.x, dst.y)
+        case _ =>  Seq(dst.x, dst.y, dst.z)
+      }
+      val names = targetCRS match {
+        case _: GeocentricCRS => Seq("x", "y", "z")
+        case _: GeographicCRS => Seq("longitude", "latitude", "altitude")
+      }
+      val vars = vals.zip(names).map(p => Real(Metadata(p._2), p._1))
+      Some(Tuple(vars))
     }
-    case _ => super.applyToTuple(tuple) //presumably some other Tuple in the dataset
-      //throw new UnsupportedOperationException("The Transform Operation expects a Tuple(x,y,z).")
   }
   
   /**
    * Override to set the new CRS Metadata.
    */
   override def applyToFunction(function: Function): Option[Variable] = {
-    super.applyToFunction(function) match {
-      case Some(f: Function) => Some(Function(f.getDomain, f.getRange, f.iterator, f.getMetadata + ("epsg" -> "4979")))
-      case other => other
+    val crs = function.getMetadata("epsg") match {
+      case None => null
+      case Some("4978") => DefaultGeocentricCRS.CARTESIAN
+      case Some(code) => CRS.decode(s"epsg:$code")
     }
+    
+    if(crs == null) {
+      super.applyToFunction(function)
+    } else if(CRS.equalsIgnoreMetadata(crs, sourceCRS)) super.applyToFunction(function) match {
+      case Some(f: Function) => Some(Function(f.getDomain, f.getRange, f.iterator, f.getMetadata + ("epsg" -> target)))
+      case other => other
+    } else new Transform(target){ override val sourceCRS = crs }.applyToFunction(function)
   }
   
 }
@@ -61,4 +78,8 @@ object Transform extends OperationFactory {
   
   override def apply() = new Transform
   
+  def apply(target: String) = new Transform(target)
+  
+  override def apply(args: Seq[String]) = new Transform(args.head)
+    
 }
