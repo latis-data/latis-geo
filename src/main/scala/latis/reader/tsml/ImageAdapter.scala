@@ -83,7 +83,7 @@ class ImageAdapter(tsml: Tsml) extends IterativeAdapter[((Double, Double), Array
     
     //Add metadata
     val c = CRS.lookupEpsgCode(crs, true) match {
-      case c: Integer => ("epsg" -> c.toString)
+      case c: Integer => ("crs" -> s"EPSG:${c.toString}")
       case null => ("wkt" -> crs.toWKT)
     }
     val w = ("width" -> width.toString)

@@ -9,6 +9,7 @@ import latis.dm.Sample
 import latis.dm.Tuple
 import latis.metadata.Metadata
 import org.geotools.factory.Hints
+import org.junit.Ignore
 
 class TestTransform {
   
@@ -17,7 +18,20 @@ class TestTransform {
     val t = Transform()
     val f = Dataset(Function(Seq(Sample(Real(Metadata("foo"),0.0), Tuple(Seq(Real(Metadata("x"), 996208.9809235458),
                                 Real(Metadata("y"), -4541094.921570469),
-                                Real(Metadata("z"), 4351898.060411415))))), Metadata(Map("epsg" -> "4978"))))
+                                Real(Metadata("z"), 4351898.060411415))))), Metadata(Map("crs" -> "EPSG:4978"))))
+    val ds = t(f)
+    val data = ds.toDoubleMap
+    assertEquals(43.301, data("latitude")(0), 0.0000001)
+    assertEquals(-77.626667, data("longitude")(0), 0.00000000001)
+    assertEquals(0, data("altitude")(0), 0.01)
+  }
+  
+  @Test @Ignore //general transforms don't work with geocentric (x,y,z) crs.
+  def t4979_t0_4957 {
+    val t = GeneralTransform("EPSG:4978")
+    val f = Dataset(Function(Seq(Sample(Real(Metadata("lat"),0.0), Tuple(Seq(Real(Metadata("x"), -77.626667),
+                                Real(Metadata("lon"), 43.301),
+                                Real(Metadata("alt"), 0))))), Metadata(Map("crs" -> "EPSG:4979"))))
     val ds = t(f)
     val data = ds.toDoubleMap
     assertEquals(43.301, data("latitude")(0), 0.0000001)

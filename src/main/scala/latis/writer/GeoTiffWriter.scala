@@ -62,23 +62,23 @@ import org.geotools.referencing.ReferencingFactoryFinder
  * Feature Functions (lines, points) must be named "line" or "points" respectively 
  * and have a range consisting of a Tuple of longitude and latitude values.
  *  
- * All Functions can have a coordinate reference system specified by using an EPSG code 
- * in the Metadata and will default to the code 4326 if no "epsg" Metadata is specified. 
+ * All Functions can have a coordinate reference system specified by using a CRS code 
+ * in the Metadata and will default to the EPSG:4326 if no "crs" Metadata is specified. 
  */
 class GeoTiffWriter extends Writer {
   
   Hints.putSystemDefault(Hints.FORCE_LONGITUDE_FIRST_AXIS_ORDER, true)
   
   /**
-   * Get the CoordinateReferenceSystem defined by epsg code
-   * in this Function's Metadata. If no "epsg" metadata is defined,
+   * Get the CoordinateReferenceSystem defined by crs code
+   * in this Function's Metadata. If no "crs" metadata is defined,
    * default to WGS84 (epsg:4326).
    */
   def getCrs(function: Function): CoordinateReferenceSystem = {
-    function.getMetadata("epsg") match {
-      case Some("404000") => CRS.decode("epsg:4326") //404000 is an unusable default when reading images
-      case Some(s) => CRS.decode(s"epsg:$s")
-      case None => CRS.decode("epsg:4326")
+    function.getMetadata("crs") match {
+      case Some("EPSG:404000") => CRS.decode("EPSG:4326") //404000 is an unusable default when reading images
+      case Some(s) => CRS.decode(s)
+      case None => CRS.decode("EPSG:4326")
     }
   }
   
@@ -217,9 +217,9 @@ class GeoTiffWriter extends Writer {
     val crs = getCrs(function)
     val cs = crs.getCoordinateSystem
     
-    val srid = function.getMetadata("epsg") match {
-      case Some("4979") => "4326" //make it 2D
-      case Some(s) => s
+    val srid = function.getMetadata("crs") match {
+      case Some("EPSG:4979") => "4326" //make it 2D
+      case Some(s) if(s.matches("""EPSG:\d*""")) => s.stripPrefix("EPSG:")
       case None => "4326"
     }
     
@@ -253,9 +253,9 @@ class GeoTiffWriter extends Writer {
     val crs = getCrs(function)
     val cs = crs.getCoordinateSystem
     
-    val srid = function.getMetadata("epsg") match {
-      case Some("4979") => "4326" //make it 2D
-      case Some(s) => s
+    val srid = function.getMetadata("crs") match {
+      case Some("EPSG:4979") => "4326" //make it 2D
+      case Some(s) if(s.matches("""EPSG:\d*""")) => s.stripPrefix("EPSG:")
       case None => "4326"
     }
     
