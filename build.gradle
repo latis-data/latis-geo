@@ -1,8 +1,4 @@
 apply plugin: 'scala'
-apply plugin: 'eclipse'
-
-//Define Java version for generated class files.
-targetCompatibility = 1.6
 
 repositories {
     maven {
@@ -22,11 +18,7 @@ dependencies {
 	compile 'org.geotools:gt-swing:14.2'
 	compile 'org.geotools:gt-image:14.2'
 
-    compile fileTree(dir: 'lib', include: '*.jar')
-
     testCompile 'junit:junit:4.+'
-
-
 }
 
-task wrapper(type: Wrapper) { gradleVersion = '2.6' }
+task wrapper(type: Wrapper) { gradleVersion = '2.12' }
