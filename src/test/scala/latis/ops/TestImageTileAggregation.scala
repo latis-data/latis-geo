@@ -56,6 +56,12 @@ class TestImageTileAggregation {
     assert(expa.equals(data("a").toSeq))
   }
   
+  @Test(expected=classOf[IllegalArgumentException])
+  def mismatched {
+    val joined = new ImageTileAggregation()(tile2, tile3)
+    val data = joined.toDoubleMap
+  }
+  
   lazy val tile1 = {
     val f = (p: (Int, Int)) => Tuple(Real(Metadata("longitude"), p._1), Real(Metadata("latitude"), p._2))
     val dom = Seq((0,0), (1, 0), (0,1), (1,1)).map(f)
