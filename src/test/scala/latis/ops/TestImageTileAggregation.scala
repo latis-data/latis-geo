@@ -16,7 +16,7 @@ class TestImageTileAggregation {
     val ds2 = DatasetAccessor.fromName("tile2").getDataset
     val joined = new ImageTileAggregation()(ds1, ds2)
     
-    Writer("/home/jast1399/test/tiles.tif").write(joined)
+    Writer("~/tmp/tiles.tif").write(joined)
   }
   
   @Test @Ignore //visual test
@@ -25,7 +25,7 @@ class TestImageTileAggregation {
     val ds2 = DatasetAccessor.fromName("tile3").getDataset
     val joined = new ImageTileAggregation()(ds1, ds2)
     
-    Writer("/home/jast1399/test/tiles.tif").write(joined)
+    Writer("~/tmp/tiles.tif").write(joined)
   }
   
   @Test
@@ -45,6 +45,9 @@ class TestImageTileAggregation {
   @Test
   def simple_v {
     val joined = new ImageTileAggregation()(tile1, tile3)
+ latis.writer.AsciiWriter.write(tile1)
+ latis.writer.AsciiWriter.write(tile3)
+ latis.writer.AsciiWriter.write(joined)
     val data = joined.toDoubleMap
     
     val explon = List(0,1)
