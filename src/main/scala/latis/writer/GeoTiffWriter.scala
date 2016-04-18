@@ -357,18 +357,19 @@ class GeoTiffWriter extends Writer {
    */
   def getMap(ds: Dataset): MapContent = {
     
-    val layers = ds match {
+    val layers: Seq[Layer] = ds match {
       case Dataset(Tuple(vs)) => vs.flatMap(v => v match {
         case f: Function => Some(getLayer(f))
         case _ => None
-      })
+      }).flatten
+      case Dataset(f: Function) => getLayer(f)
     }
     
     val map = new MapContent()
     map.setTitle(ds.getName)
 
-    val lf = layers.flatten
-    lf.foreach { x => map.addLayer(x)}
+    //val lf = layers.flatten
+    layers.foreach { x => map.addLayer(x)}
    
     map
   }
