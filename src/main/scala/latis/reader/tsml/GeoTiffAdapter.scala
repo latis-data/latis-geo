@@ -6,7 +6,7 @@ import com.typesafe.scalalogging.LazyLogging
 
 import latis.reader.tsml.ml.Tsml
 
-class GeoTiffAdapter(tsml: Tsml) extends ImageAdapter(tsml) with LazyLogging{
+class GeoTiffAdapter(tsml: Tsml) extends GeoImageAdapter(tsml) with LazyLogging{
   
   override lazy val reader: GeoTiffReader = new GeoTiffReader(getUrl)
   
