@@ -16,7 +16,6 @@ import org.geotools.data.DataUtilities
 import org.geotools.data.collection.ListFeatureCollection
 import org.geotools.data.simple.SimpleFeatureCollection
 import org.geotools.factory.CommonFactoryFinder
-import org.geotools.factory.Hints
 import org.geotools.feature.simple.SimpleFeatureBuilder
 import org.geotools.geometry.jts.JTSFactoryFinder
 import org.geotools.geometry.jts.ReferencedEnvelope
@@ -24,13 +23,11 @@ import org.geotools.map.FeatureLayer
 import org.geotools.map.GridCoverageLayer
 import org.geotools.map.Layer
 import org.geotools.map.MapContent
-import org.geotools.referencing.CRS
 import org.geotools.renderer.lite.StreamingRenderer
 import org.geotools.styling.SLD
 import org.geotools.styling.Style
 import org.opengis.feature.simple.SimpleFeature
 import org.opengis.geometry.Envelope
-import org.opengis.referencing.crs.CoordinateReferenceSystem
 import org.opengis.referencing.cs.AxisDirection.EAST
 import org.opengis.referencing.cs.AxisDirection.NORTH
 
@@ -39,16 +36,14 @@ import com.vividsolutions.jts.geom.Coordinate
 import latis.dm.Dataset
 import latis.dm.Function
 import latis.dm.Number
+import latis.dm.Real
 import latis.dm.Sample
 import latis.dm.Tuple
-import latis.dm.Real
-import latis.util.ColorModels
-import latis.util.iterator.PeekIterator
 import latis.util.CircleMarkPointStyle
+import latis.util.ColorModels
+import latis.util.Crs
 import latis.util.WindMarkPointStyle
-import org.geotools.feature.FeatureCollection
-import org.geotools.factory.Hints
-import org.geotools.referencing.ReferencingFactoryFinder
+import latis.util.iterator.PeekIterator
 
 /**
  * Uses Geotools to write a Geotiff image. The Dataset to be written must be modeled 
@@ -66,21 +61,6 @@ import org.geotools.referencing.ReferencingFactoryFinder
  * in the Metadata and will default to the EPSG:4326 if no "crs" Metadata is specified. 
  */
 class GeoTiffWriter extends Writer {
-  
-  Hints.putSystemDefault(Hints.FORCE_LONGITUDE_FIRST_AXIS_ORDER, true)
-  
-  /**
-   * Get the CoordinateReferenceSystem defined by crs code
-   * in this Function's Metadata. If no "crs" metadata is defined,
-   * default to WGS84 (epsg:4326).
-   */
-  def getCrs(function: Function): CoordinateReferenceSystem = {
-    function.getMetadata("crs") match {
-      case Some("EPSG:404000") => CRS.decode("EPSG:4326") //404000 is an unusable default when reading images
-      case Some(s) => CRS.decode(s)
-      case None => CRS.decode("EPSG:4326")
-    }
-  }
   
   def getLatLon(s: Sample): (Double, Double) = (s.findVariableByName("latitude"), s.findVariableByName("longitude")) match {
     case (Some(Number(lat)), Some(Number(lon))) => (lat,lon)
@@ -148,7 +128,7 @@ class GeoTiffWriter extends Writer {
    * relative to a coordinate system defined in the metadata.
    */
   def getEnvelope(function: Function, raster: WritableRaster): Envelope = {
-    val crs = getCrs(function)
+    val crs = Crs.getCrs(function)
     
     val bounds = fillRaster(function, raster)
     
@@ -214,7 +194,7 @@ class GeoTiffWriter extends Writer {
    * Makes a FeatureCollection containing a single line.
    */
   def getLineCollection(function: Function): SimpleFeatureCollection = {
-    val crs = getCrs(function)
+    val crs = Crs.getCrs(function)
     val cs = crs.getCoordinateSystem
     
     val srid = function.getMetadata("crs") match {
@@ -250,7 +230,7 @@ class GeoTiffWriter extends Writer {
    * sample in the function.
    */
   def getPointCollection(function: Function): SimpleFeatureCollection = {
-    val crs = getCrs(function)
+    val crs = Crs.getCrs(function)
     val cs = crs.getCoordinateSystem
     
     val srid = function.getMetadata("crs") match {

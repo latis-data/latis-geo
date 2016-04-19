@@ -2,7 +2,6 @@ package latis.ops
 
 import org.geotools.factory.Hints
 import org.geotools.geometry.jts.JTS
-import org.geotools.referencing.CRS
 import org.geotools.referencing.crs.DefaultGeocentricCRS
 import org.opengis.referencing.crs.CoordinateReferenceSystem
 
@@ -14,18 +13,17 @@ import latis.dm.Real
 import latis.dm.Tuple
 import latis.dm.Variable
 import latis.metadata.Metadata
+import latis.util.Crs
 
 /**
  * Transform from ECEF to WGS84 3D.
  */
 class Transform extends Operation {
   
-  Hints.putSystemDefault(Hints.FORCE_LONGITUDE_FIRST_AXIS_ORDER, true)
-  
   val sourceCRS: CoordinateReferenceSystem = DefaultGeocentricCRS.CARTESIAN //EPSG:4978
-  val targetCRS: CoordinateReferenceSystem = CRS.decode("EPSG:4979") //WGS84 3D
+  val targetCRS: CoordinateReferenceSystem = Crs.decode("EPSG:4979") //WGS84 3D
   
-  lazy val transform = CRS.findMathTransform(sourceCRS, targetCRS)
+  lazy val transform = Crs.findMathTransform(sourceCRS, targetCRS)
   
   //Note, applies to any tuple with 3 Numbers.
   //TODO: match name or metadata convention for geolocation

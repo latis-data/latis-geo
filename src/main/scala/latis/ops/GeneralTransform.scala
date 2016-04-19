@@ -1,9 +1,6 @@
 package latis.ops
 
-import org.geotools.factory.Hints
 import org.geotools.geometry.jts.JTS
-import org.geotools.referencing.CRS
-import org.geotools.referencing.crs.DefaultGeocentricCRS
 import org.opengis.referencing.crs.CoordinateReferenceSystem
 import org.opengis.referencing.crs.GeocentricCRS
 import org.opengis.referencing.crs.GeographicCRS
@@ -16,18 +13,17 @@ import latis.dm.Real
 import latis.dm.Tuple
 import latis.dm.Variable
 import latis.metadata.Metadata
+import latis.util.Crs
 
 /**
  * Transform from ECEF to WGS84 3D.
  */
 class GeneralTransform(target: String = "EPSG:4979") extends Operation {
   
-  Hints.putSystemDefault(Hints.FORCE_LONGITUDE_FIRST_AXIS_ORDER, true)
-  
   val sourceCRS: CoordinateReferenceSystem = null
-  val targetCRS: CoordinateReferenceSystem = CRS.decode(target) //WGS84 3D
+  val targetCRS: CoordinateReferenceSystem = Crs.decode(target) //WGS84 3D
   
-  lazy val transform = CRS.findMathTransform(sourceCRS, targetCRS, true)
+  lazy val transform = Crs.findMathTransform(sourceCRS, targetCRS)
   
   //Note, applies to any tuple with 2/3 Numbers.
   //TODO: match name or metadata convention for geolocation
@@ -58,15 +54,11 @@ class GeneralTransform(target: String = "EPSG:4979") extends Operation {
    * Override to set the new CRS Metadata.
    */
   override def applyToFunction(function: Function): Option[Variable] = {
-    val crs = function.getMetadata("crs") match {
-      case None => null
-      case Some("EPSG:4978") => DefaultGeocentricCRS.CARTESIAN
-      case Some(code) => CRS.decode(code)
-    }
+    val crs = Crs.getCrs(function)
     
     if(crs == null) {
       super.applyToFunction(function)
-    } else if(CRS.equalsIgnoreMetadata(crs, sourceCRS)) super.applyToFunction(function) match {
+    } else if(Crs.equalsIgnoreMetadata(crs, sourceCRS)) super.applyToFunction(function) match {
       case Some(f: Function) => Some(Function(f.getDomain, f.getRange, f.iterator, f.getMetadata + ("crs" -> target)))
       case other => other
     } else new GeneralTransform(target){ override val sourceCRS = crs }.applyToFunction(function)
