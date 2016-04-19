@@ -16,7 +16,7 @@ import latis.reader.tsml.ml.VariableMl
 import java.net.URL
 import latis.util.StringUtils
 
-class GeoImageAdapter(tsml: Tsml) extends IterativeAdapter[((Double, Double), Array[Int])](tsml) {
+class WorldImageAdapter(tsml: Tsml) extends IterativeAdapter[((Double, Double), Array[Int])](tsml) {
     
   private var _reader: AbstractGridCoverage2DReader = null
   lazy val reader = {
