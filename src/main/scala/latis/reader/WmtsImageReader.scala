@@ -1,14 +1,65 @@
 package latis.reader
 
+import latis.dm._
+import latis.ops._
+import latis.ops.filter._
+import latis.writer.Writer
+import java.io.File
+import com.typesafe.scalalogging.LazyLogging
+
 /**
+ * Find the image for the given selection.
  * Use the tile information in the image URL and the WMTSCapabilities.xml
  * to transform the (row, column) domain to (longitude, latitude).
  * 
- * writer properties:
- *   tile_matrix_dataset
- *   
  */
-class WmtsImageReader extends DatasetAccessor {
+class WmtsImageReader extends DatasetAccessor with LazyLogging {
   
+  //Keep readers at global scope so we can close them.
+  private var tileListReader: DatasetAccessor = null
+  private var imageReader: DatasetAccessor = null
   
+  def getDataset(operations: Seq[Operation]): Dataset = {
+    //Get the dataset of tiles for the given ops; 
+    //  requires a single time selection //TODO: enforce
+    //  longitude, latitude optional
+    //This will return one tile URL based on the requested lon,lat region (WmtsTileUrlGenerator).
+    // time -> (minLon,maxLon,minLat,maxLat,file)
+    tileListReader = DatasetAccessor.fromName("wmts_tiles")
+    val tileds = tileListReader.getDataset(operations)
+    
+    //Extract the info to read the image and transform it from (row,column) to (longitude,latitude)
+    //TODO: error handling
+    tileds match {
+      case Dataset(Function(it)) => it.next match {
+        case Sample(_, tup: Tuple) => {
+          val minLon = tup.findVariableByName("minLon") match { case Some(Number(d)) => d }
+          val maxLon = tup.findVariableByName("maxLon") match { case Some(Number(d)) => d }
+          val minLat = tup.findVariableByName("minLat") match { case Some(Number(d)) => d }
+          val maxLat = tup.findVariableByName("maxLat") match { case Some(Number(d)) => d }
+          val file = tup.findVariableByName("file") match { case Some(Text(s)) => s }
+          val baseUrl = tileds.getMetadata.get("baseUrl") match { case Some(s) => s }
+          
+          val url = if (baseUrl.endsWith(File.separator)) baseUrl + file
+                    else baseUrl + File.separator + file
+          logger.debug(s"Reading image: " + url)
+          imageReader = ImageReader(url)
+          val imageds = imageReader.getDataset()
+          val geods = RowColToLonLat(minLon, maxLon, minLat, maxLat)(imageds)
+          //apply spatial selections to the geo-referenced image
+          operations.filter(isSpatialSelection(_)).foldLeft(geods)((ds, op) => op(ds))
+        }
+      }
+    }
+  }
+  
+  private def isSpatialSelection(op: Operation) : Boolean = op match {
+    case Selection(v,_,_) if (v == "longitude" || v == "latitude") => true
+    case _ => false
+  }
+  
+  def close = {
+    if (tileListReader == null) tileListReader.close
+    if (imageReader == null) imageReader.close
+  }
 }
