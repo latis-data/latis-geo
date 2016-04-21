@@ -7,6 +7,7 @@ import java.awt.image.PixelInterleavedSampleModel
 import java.awt.image.Raster
 import java.awt.image.WritableRaster
 
+import scala.collection.JavaConverters._
 import scala.collection.JavaConversions.bufferAsJavaList
 import scala.collection.mutable.ListBuffer
 
@@ -306,7 +307,7 @@ class GeoTiffWriter extends Writer {
     case Some("image") | None => {
       val coverage = getCoverage(function)
       val style = getStyle(function)
-      Seq(new GridCoverageLayer(coverage, style))
+      Seq(new GridCoverageLayer(coverage, style, "image"))
     }
     case Some(typ) => throw new Exception("Unknown layerType: " + typ)
   }
@@ -386,16 +387,16 @@ class GeoTiffWriter extends Writer {
     val ds = dataset.force
     val map = getMap(ds)
     
-    //the image function must have gridded data with an appropriate width and height
-    val imagefunc = ds.findVariableByName("image").get.asInstanceOf[Function]
-    val (width, height, bands) = getDimensions(imagefunc)
+    val imageLayer = map.layers.asScala.find(l => l.getTitle == "image").getOrElse(
+      throw new Exception("No image layer included in the dataset, it cannot be written."))
+      .asInstanceOf[GridCoverageLayer]
     
+    val imgBounds = imageLayer.getCoverage.getGridGeometry.getGridRange2D
+    val mapBounds = new ReferencedEnvelope(imageLayer.getCoverage.getEnvelope2D, map.getCoordinateReferenceSystem)
+
     //create the image that the dataset will be written to.
-    val image = new BufferedImage(width, height, BufferedImage.TYPE_3BYTE_BGR)
+    val image = new BufferedImage(imgBounds.getSpan(0), imgBounds.getSpan(1), BufferedImage.TYPE_3BYTE_BGR)
     val gr = image.createGraphics
-    
-    val mapBounds = map.getViewport.getBounds
-    val imgBounds = new Rectangle(width, height)
     
     //use a renderer to paint the map onto the image
     val renderer = new StreamingRenderer()
