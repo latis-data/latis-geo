@@ -286,24 +286,26 @@ class GeoTiffWriter extends Writer {
   /**
    * Constructs a layer using a coverage and a style.
    */
-  def getLayer(function: Function): Seq[Layer] = {
-    if(function.hasName("line")) {
+  def getLayer(function: Function): Seq[Layer] = function.getMetadata("layerType") match {
+    case Some("line") => {
       val fcol = getLineCollection(function)
       val style = getStyle(function)
       Seq(new FeatureLayer(fcol, style))
-    } else if(function.hasName("points")) {
+    }
+    case Some("points") => {
       val fcol = getPointCollection(function)
       val style = getStyle(function)
       Seq(new FeatureLayer(fcol, style))
-    } else if(function.hasName("image")) {
+    }
+    case Some("wind") => {
+      getWinArrowLayers(function).toSeq
+    }
+    case Some("image") | None => {
       val coverage = getCoverage(function)
       val style = getStyle(function)
       Seq(new GridCoverageLayer(coverage, style))
-    } else if(function.hasName("wind")) {
-      getWinArrowLayers(function).toSeq
-    } else {
-      throw new Exception("Couldn't apply a layer to function: " + function.getName)
     }
+    case Some(typ) => throw new Exception("Unknown layerType: " + typ)
   }
   
   def getWindNorm(u: Double, v: Double): Double = {
@@ -368,7 +370,6 @@ class GeoTiffWriter extends Writer {
     val map = new MapContent()
     map.setTitle(ds.getName)
 
-    //val lf = layers.flatten
     layers.foreach { x => map.addLayer(x)}
    
     map
