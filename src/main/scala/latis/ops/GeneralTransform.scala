@@ -4,9 +4,7 @@ import org.geotools.geometry.jts.JTS
 import org.opengis.referencing.crs.CoordinateReferenceSystem
 import org.opengis.referencing.crs.GeocentricCRS
 import org.opengis.referencing.crs.GeographicCRS
-
 import com.vividsolutions.jts.geom.Coordinate
-
 import latis.dm.Function
 import latis.dm.Number
 import latis.dm.Real
@@ -14,6 +12,7 @@ import latis.dm.Tuple
 import latis.dm.Variable
 import latis.metadata.Metadata
 import latis.util.Crs
+import org.geotools.referencing.crs.DefaultGeocentricCRS.CARTESIAN
 
 /**
  * Transform from ECEF to WGS84 3D.
@@ -21,7 +20,10 @@ import latis.util.Crs
 class GeneralTransform(target: String = "EPSG:4979") extends Operation {
   
   val sourceCRS: CoordinateReferenceSystem = null
-  val targetCRS: CoordinateReferenceSystem = Crs.decode(target) //WGS84 3D
+  val targetCRS: CoordinateReferenceSystem = target match {
+    case "EPSG:4978" => CARTESIAN
+    case e => Crs.decode(target) 
+  }
   
   lazy val transform = Crs.findMathTransform(sourceCRS, targetCRS)
   
