@@ -204,9 +204,12 @@ class GeoTiffWriter extends Writer {
    */
   def getStyle(function: Function): Style = {
     val sf = CommonFactoryFinder.getStyleFactory
-    val sym = if(function.hasName("line")) sf.getDefaultLineSymbolizer
-      else if(function.hasName("points")) CircleMarkPointStyle.getCustomPointCircleSymbolizer(sf)
-      else sf.getDefaultRasterSymbolizer
+    val sym = function.getMetadata("layerType") match {
+      case Some("line") => sf.getDefaultLineSymbolizer
+      case Some("points") => CircleMarkPointStyle.getCustomPointCircleSymbolizer(sf)
+      case Some("image") | None => sf.getDefaultRasterSymbolizer
+      case Some(typ) => throw new Exception("Unknown layerType: " + typ)
+    }
     SLD.wrapSymbolizers(sym)
   }
   
