@@ -35,6 +35,7 @@ class AdjustLongitude extends Operation {
       case Number(d) => {
         val dMod360 = (d % 360)
         val d2 = if (dMod360 >= 180) dMod360 - 360
+        //TODO: this will force 180 to -180 which could cause problems, see latis.util.GeoLocation
             else if (dMod360 < -180) dMod360 + 360
             else dMod360
         Some(Real(scalar.getMetadata, DoubleValue(d2))) //TODO: use copy, preserve int
