@@ -7,8 +7,8 @@ import java.awt.image.PixelInterleavedSampleModel
 import java.awt.image.Raster
 import java.awt.image.WritableRaster
 
-import scala.collection.JavaConverters._
 import scala.collection.JavaConversions.bufferAsJavaList
+import scala.collection.JavaConverters.asScalaBufferConverter
 import scala.collection.mutable.ListBuffer
 
 import org.geotools.coverage.CoverageFactoryFinder
@@ -40,16 +40,13 @@ import com.vividsolutions.jts.geom.Coordinate
 import latis.dm.Dataset
 import latis.dm.Function
 import latis.dm.Number
+import latis.dm.Real
 import latis.dm.Sample
 import latis.dm.Tuple
-import latis.dm.Real
-import latis.util.ColorModels
-import latis.util.iterator.PeekIterator
 import latis.util.CircleMarkPointStyle
+import latis.util.ColorModels
 import latis.util.WindMarkPointStyle
-import org.geotools.feature.FeatureCollection
-import org.geotools.factory.Hints
-import org.geotools.referencing.ReferencingFactoryFinder
+import latis.util.iterator.PeekIterator
 
 /**
  * Uses Geotools to write a Geotiff image. The Dataset to be written must be modeled 
@@ -88,6 +85,9 @@ class GeoTiffWriter extends Writer {
     case _ => throw new Exception("Sample did not contain variables named 'latitude and 'longitude'.")
   }
   
+  val lonSet = ListBuffer[Double]()
+  val latSet = ListBuffer[Double]()
+  
   /**
    * Get the width, height, and number of variables in the range of the given function. 
    */
@@ -98,8 +98,10 @@ class GeoTiffWriter extends Writer {
     val (lats, lons) = samples.map(getLatLon).unzip
     
     val width = lons.distinct.size
+    lonSet ++= lons.distinct
     
     val height = lats.distinct.size
+    latSet ++= lats.distinct
     
     val bands = samples.head match {
       case Sample(_, n: Number) => 1
@@ -387,17 +389,17 @@ class GeoTiffWriter extends Writer {
     val ds = dataset.force
     val map = getMap(ds)
     
-    val imageLayer = map.layers.asScala.find(l => l.getTitle == "image").getOrElse(
-      throw new Exception("No image layer included in the dataset, it cannot be written."))
-      .asInstanceOf[GridCoverageLayer]
+    //get the bounds of only the image layers
+    val imageLayers = map.layers.asScala.collect { case l: GridCoverageLayer => l }
+    val imgRecs = imageLayers.map(l => l.getCoverage.getEnvelope2D.getBounds2D)
+    val imgEnv = imgRecs.reduceLeft(_.createUnion(_))
+    val mapBounds = new ReferencedEnvelope(imgEnv, map.getCoordinateReferenceSystem)
     
-    val imgBounds = imageLayer.getCoverage.getGridGeometry.getGridRange2D
-    val mapBounds = new ReferencedEnvelope(imageLayer.getCoverage.getEnvelope2D, map.getCoordinateReferenceSystem)
-
     //create the image that the dataset will be written to.
-    val image = new BufferedImage(imgBounds.getSpan(0), imgBounds.getSpan(1), BufferedImage.TYPE_3BYTE_BGR)
+    val imgBounds = new Rectangle(lonSet.distinct.size, latSet.distinct.size)
+    val image = new BufferedImage(imgBounds.getWidth.toInt, imgBounds.getHeight.toInt, BufferedImage.TYPE_3BYTE_BGR)
     val gr = image.createGraphics
-    
+        
     //use a renderer to paint the map onto the image
     val renderer = new StreamingRenderer()
     renderer.setMapContent(map)
