@@ -45,9 +45,6 @@ class TestImageTileAggregation {
   @Test
   def simple_v {
     val joined = new ImageTileAggregation()(tile1, tile3)
- latis.writer.AsciiWriter.write(tile1)
- latis.writer.AsciiWriter.write(tile3)
- latis.writer.AsciiWriter.write(joined)
     val data = joined.toDoubleMap
     
     val explon = List(0,1)
@@ -63,6 +60,34 @@ class TestImageTileAggregation {
   def mismatched {
     val joined = new ImageTileAggregation()(tile2, tile3)
     val data = joined.toDoubleMap
+  }
+  
+  @Test
+  def seq_ordered {
+    val joined = new ImageTileAggregation()(Seq(tile1, tile2, tile3, tile4))
+    val data = joined.toDoubleMap
+    
+    val explon = List(0,1,2,3)
+    val explat = List(0,1,2,3)
+    val expa = List.range(0,16)
+    
+    assert(explon.equals(data("longitude").toSeq.distinct))
+    assert(explat.equals(data("latitude").toSeq.distinct))
+    assert(expa.equals(data("a").toSeq))
+  }
+  
+  @Test
+  def seq_unordered {
+    val joined = new ImageTileAggregation()(Seq(tile3, tile2, tile4, tile1))
+    val data = joined.toDoubleMap
+    
+    val explon = List(0,1,2,3)
+    val explat = List(0,1,2,3)
+    val expa = List.range(0,16)
+    
+    assert(explon.equals(data("longitude").toSeq.distinct))
+    assert(explat.equals(data("latitude").toSeq.distinct))
+    assert(expa.equals(data("a").toSeq))
   }
   
   lazy val tile1 = {
@@ -85,6 +110,14 @@ class TestImageTileAggregation {
     val f = (p: (Int, Int)) => Tuple(Real(Metadata("longitude"), p._1), Real(Metadata("latitude"), p._2))
     val dom = Seq((0,2), (1, 2), (0,3), (1,3)).map(f)
     val ran = Seq(8,9,12,13).map(Real(Metadata("a"), _))
+    
+    Dataset(Function(dom.zip(ran).map(p => Sample(p._1, p._2))))
+  }
+  
+  lazy val tile4 = {
+    val f = (p: (Int, Int)) => Tuple(Real(Metadata("longitude"), p._1), Real(Metadata("latitude"), p._2))
+    val dom = Seq((2,2), (3, 2), (2,3), (3,3)).map(f)
+    val ran = Seq(10,11,14,15).map(Real(Metadata("a"), _))
     
     Dataset(Function(dom.zip(ran).map(p => Sample(p._1, p._2))))
   }
