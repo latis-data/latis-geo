@@ -45,9 +45,6 @@ class TestImageTileAggregation {
   @Test
   def simple_v {
     val joined = new ImageTileAggregation()(tile1, tile3)
- latis.writer.AsciiWriter.write(tile1)
- latis.writer.AsciiWriter.write(tile3)
- latis.writer.AsciiWriter.write(joined)
     val data = joined.toDoubleMap
     
     val explon = List(0,1)
