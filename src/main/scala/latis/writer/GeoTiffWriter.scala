@@ -169,26 +169,15 @@ class GeoTiffWriter extends Writer {
   
   /**
    * Create a buffered image of this function. 
-   * If a color map is defined for this function, it is applied here.
    */
   def getImage(function: Function, raster: WritableRaster): BufferedImage = {
-    function.getMetadata("color_map") match {
-      case None => {
-        raster.getNumBands match {
-          case 1 => {
-            val image = new BufferedImage(raster.getWidth, raster.getHeight, BufferedImage.TYPE_BYTE_GRAY)
-            image.setData(raster)
-            image
-          }
-          case 3 => {
-            val image = new BufferedImage(raster.getWidth, raster.getHeight, BufferedImage.TYPE_3BYTE_BGR)
-            image.setData(raster)
-            image
-          }
-        }
-      }
-      case Some(name) => new BufferedImage(ColorModels(name), raster, false, null)
+    val typ = raster.getNumBands match {
+      case 1 => BufferedImage.TYPE_BYTE_GRAY
+      case 3 => BufferedImage.TYPE_3BYTE_BGR
     }
+    val image = new BufferedImage(raster.getWidth, raster.getHeight, typ)
+    image.setData(raster)
+    image
   }
   
   /**
@@ -307,8 +296,15 @@ class GeoTiffWriter extends Writer {
       getWinArrowLayers(function).toSeq
     }
     case Some("image") | None => {
-      val coverage = getCoverage(function)
-      val style = getStyle(function)
+      val coloredf = function.getMetadata("color_model") match {
+        case None => function
+        case Some(name) => {
+          val f = ColorModels(name).compose(function)
+          Function(f.iterator.toSeq, f.getMetadata) //make a reusable function
+        }
+      }
+      val coverage = getCoverage(coloredf)
+      val style = getStyle(coloredf)
       Seq(new GridCoverageLayer(coverage, style, "image"))
     }
     case Some(typ) => throw new Exception("Unknown layerType: " + typ)
