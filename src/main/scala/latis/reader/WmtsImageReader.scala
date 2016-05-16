@@ -59,7 +59,7 @@ class WmtsImageReader extends DatasetAccessor with LazyLogging {
   }
   
   def close = {
-    if (tileListReader == null) tileListReader.close
-    if (imageReader == null) imageReader.close
+    if (tileListReader != null) tileListReader.close
+    if (imageReader != null) imageReader.close
   }
 }
