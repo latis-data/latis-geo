@@ -17,7 +17,6 @@ import org.geotools.data.DataUtilities
 import org.geotools.data.collection.ListFeatureCollection
 import org.geotools.data.simple.SimpleFeatureCollection
 import org.geotools.factory.CommonFactoryFinder
-import org.geotools.factory.Hints
 import org.geotools.feature.simple.SimpleFeatureBuilder
 import org.geotools.geometry.jts.JTSFactoryFinder
 import org.geotools.geometry.jts.ReferencedEnvelope
@@ -25,13 +24,11 @@ import org.geotools.map.FeatureLayer
 import org.geotools.map.GridCoverageLayer
 import org.geotools.map.Layer
 import org.geotools.map.MapContent
-import org.geotools.referencing.CRS
 import org.geotools.renderer.lite.StreamingRenderer
 import org.geotools.styling.SLD
 import org.geotools.styling.Style
 import org.opengis.feature.simple.SimpleFeature
 import org.opengis.geometry.Envelope
-import org.opengis.referencing.crs.CoordinateReferenceSystem
 import org.opengis.referencing.cs.AxisDirection.EAST
 import org.opengis.referencing.cs.AxisDirection.NORTH
 
@@ -45,6 +42,7 @@ import latis.dm.Sample
 import latis.dm.Tuple
 import latis.util.CircleMarkPointStyle
 import latis.util.ColorModels
+import latis.util.Crs
 import latis.util.WindMarkPointStyle
 import latis.util.iterator.PeekIterator
 
@@ -60,25 +58,10 @@ import latis.util.iterator.PeekIterator
  * Feature Functions (lines, points) must be named "line" or "points" respectively 
  * and have a range consisting of a Tuple of longitude and latitude values.
  *  
- * All Functions can have a coordinate reference system specified by using an EPSG code 
- * in the Metadata and will default to the code 4326 if no "epsg" Metadata is specified. 
+ * All Functions can have a coordinate reference system specified by using a CRS code 
+ * in the Metadata and will default to the EPSG:4326 if no "crs" Metadata is specified. 
  */
 class GeoTiffWriter extends Writer {
-  
-  Hints.putSystemDefault(Hints.FORCE_LONGITUDE_FIRST_AXIS_ORDER, true)
-  
-  /**
-   * Get the CoordinateReferenceSystem defined by epsg code
-   * in this Function's Metadata. If no "epsg" metadata is defined,
-   * default to WGS84 (epsg:4326).
-   */
-  def getCrs(function: Function): CoordinateReferenceSystem = {
-    function.getMetadata("epsg") match {
-      case Some("404000") => CRS.decode("epsg:4326") //404000 is an unusable default when reading images
-      case Some(s) => CRS.decode(s"epsg:$s")
-      case None => CRS.decode("epsg:4326")
-    }
-  }
   
   def getLatLon(s: Sample): (Double, Double) = (s.findVariableByName("latitude"), s.findVariableByName("longitude")) match {
     case (Some(Number(lat)), Some(Number(lon))) => (lat,lon)
@@ -151,7 +134,7 @@ class GeoTiffWriter extends Writer {
    * relative to a coordinate system defined in the metadata.
    */
   def getEnvelope(function: Function, raster: WritableRaster): Envelope = {
-    val crs = getCrs(function)
+    val crs = Crs.getCrs(function)
     
     val bounds = fillRaster(function, raster)
     
@@ -209,12 +192,12 @@ class GeoTiffWriter extends Writer {
    * Makes a FeatureCollection containing a single line.
    */
   def getLineCollection(function: Function): SimpleFeatureCollection = {
-    val crs = getCrs(function)
+    val crs = Crs.getCrs(function)
     val cs = crs.getCoordinateSystem
     
-    val srid = function.getMetadata("epsg") match {
-      case Some("4979") => "4326" //make it 2D
-      case Some(s) => s
+    val srid = function.getMetadata("crs") match {
+      case Some("EPSG:4979") => "4326" //make it 2D
+      case Some(s) if(s.matches("""EPSG:\d*""")) => s.stripPrefix("EPSG:")
       case None => "4326"
     }
     
@@ -245,12 +228,12 @@ class GeoTiffWriter extends Writer {
    * sample in the function.
    */
   def getPointCollection(function: Function): SimpleFeatureCollection = {
-    val crs = getCrs(function)
+    val crs = Crs.getCrs(function)
     val cs = crs.getCoordinateSystem
     
-    val srid = function.getMetadata("epsg") match {
-      case Some("4979") => "4326" //make it 2D
-      case Some(s) => s
+    val srid = function.getMetadata("crs") match {
+      case Some("EPSG:4979") => "4326" //make it 2D
+      case Some(s) if(s.matches("""EPSG:\d*""")) => s.stripPrefix("EPSG:")
       case None => "4326"
     }
     
