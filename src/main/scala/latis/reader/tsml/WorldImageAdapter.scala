@@ -88,7 +88,8 @@ class WorldImageAdapter(tsml: Tsml) extends IterativeAdapter[((Double, Double), 
     }
     val w = ("width" -> width.toString)
     val h = ("height" -> height.toString)
-    val md = f.getMetadata + c + w + h
+    val layerType = ("layerType" -> "image")
+    val md = f.getMetadata + c + w + h + layerType
     Some(Function(f2.getDomain, f2.getRange, md, f2.getData.asInstanceOf[SampledData]))
   }
 }
