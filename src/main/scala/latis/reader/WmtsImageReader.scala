@@ -6,6 +6,7 @@ import latis.ops.filter._
 import latis.writer.Writer
 import java.io.File
 import com.typesafe.scalalogging.LazyLogging
+import latis.time.Time
 
 /**
  * Find the image for the given selection.
@@ -25,29 +26,37 @@ class WmtsImageReader extends DatasetAccessor with LazyLogging {
     //  longitude, latitude optional
     //This will return one tile URL based on the requested lon,lat region (WmtsTileUrlGenerator).
     // time -> (minLon,maxLon,minLat,maxLat,file)
+    //TODO: we now return a seq of files that need to be joined
+    //  (time -> index -> (minLon, maxLon, minLat, maxLat, file))
     tileListReader = DatasetAccessor.fromName("wmts_tiles")
     val tileds = tileListReader.getDataset(operations)
-    
+
     //Extract the info to read the image and transform it from (row,column) to (longitude,latitude)
-    //TODO: error handling
-    tileds match {
-      case Dataset(Function(it)) => it.next match {
+    val geods = tilesToDataset(tileds)
+    //apply spatial selections to the geo-referenced image
+    operations.filter(isSpatialSelection(_)).foldLeft(geods)((ds, op) => op(ds))
+  }
+
+  private def tilesToDataset(tileDataset: Dataset): Dataset = tileDataset match {
+    case Dataset(Function(it)) => it.next match {
+      case Sample(_, Function(it2)) => it2.next match {
         case Sample(_, tup: Tuple) => {
           val minLon = tup.findVariableByName("minLon") match { case Some(Number(d)) => d }
           val maxLon = tup.findVariableByName("maxLon") match { case Some(Number(d)) => d }
           val minLat = tup.findVariableByName("minLat") match { case Some(Number(d)) => d }
           val maxLat = tup.findVariableByName("maxLat") match { case Some(Number(d)) => d }
           val file = tup.findVariableByName("file") match { case Some(Text(s)) => s }
-          val baseUrl = tileds.getMetadata.get("baseUrl") match { case Some(s) => s }
-          
+          val baseUrl = tileDataset.getMetadata.get("baseUrl") match {
+            case Some(s) => s
+            case None => throw new Error("No baseUrl defined in the tile dataset.")
+          }
+
           val url = if (baseUrl.endsWith(File.separator)) baseUrl + file
-                    else baseUrl + File.separator + file
+          else baseUrl + File.separator + file
           logger.debug(s"Reading image: " + url)
           imageReader = ImageReader(url)
           val imageds = imageReader.getDataset()
-          val geods = RowColToLonLat(minLon, maxLon, minLat, maxLat)(imageds)
-          //apply spatial selections to the geo-referenced image
-          operations.filter(isSpatialSelection(_)).foldLeft(geods)((ds, op) => op(ds))
+          RowColToLonLat(minLon, maxLon, minLat, maxLat)(imageds)
         }
       }
     }
