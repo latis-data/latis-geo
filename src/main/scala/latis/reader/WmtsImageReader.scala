@@ -38,8 +38,8 @@ class WmtsImageReader extends DatasetAccessor with LazyLogging {
   }
 
   private def tilesToDataset(tileDataset: Dataset): Dataset = tileDataset match {
-    case Dataset(Function(it)) => it.next match {
-      case Sample(_, Function(it2)) => it2.next match {
+    case Dataset(Function(it)) => it.next match { //assuming one time sample
+      case Sample(_, Function(it2)) => it2.next match {  //assuming one tile per time sample
         case Sample(_, tup: Tuple) => {
           val minLon = tup.findVariableByName("minLon") match { case Some(Number(d)) => d }
           val maxLon = tup.findVariableByName("maxLon") match { case Some(Number(d)) => d }
