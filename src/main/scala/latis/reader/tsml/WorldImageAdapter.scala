@@ -2,19 +2,17 @@ package latis.reader.tsml
 
 import java.awt.geom.Point2D
 import java.awt.image.Raster
+
 import org.geotools.coverage.grid.GridCoverage2D
 import org.geotools.coverage.grid.io.AbstractGridCoverage2DReader
 import org.geotools.gce.image.WorldImageReader
-import org.geotools.referencing.CRS
 import org.opengis.referencing.operation.MathTransform2D
-import latis.data._
+
+import latis.data.Data
+import latis.data.SampledData
 import latis.dm.Function
-import latis.metadata.Metadata
-import latis.reader.tsml.ml.FunctionMl
 import latis.reader.tsml.ml.Tsml
-import latis.reader.tsml.ml.VariableMl
-import java.net.URL
-import latis.util.StringUtils
+import latis.util.Crs
 
 class WorldImageAdapter(tsml: Tsml) extends IterativeAdapter[((Double, Double), Array[Int])](tsml) {
     
@@ -82,13 +80,14 @@ class WorldImageAdapter(tsml: Tsml) extends IterativeAdapter[((Double, Double), 
     val f2 = super.makeFunction(f).get
     
     //Add metadata
-    val c = CRS.lookupEpsgCode(crs, true) match {
-      case c: Integer => ("epsg" -> c.toString)
+    val c = Crs.lookupEpsgCode(crs, true) match {
+      case c: Integer => ("crs" -> s"EPSG:${c.toString}")
       case null => ("wkt" -> crs.toWKT)
     }
     val w = ("width" -> width.toString)
     val h = ("height" -> height.toString)
-    val md = f.getMetadata + c + w + h
+    val layerType = ("layerType" -> "image")
+    val md = f.getMetadata + c + w + h + layerType
     Some(Function(f2.getDomain, f2.getRange, md, f2.getData.asInstanceOf[SampledData]))
   }
 }

@@ -1,31 +1,29 @@
 package latis.ops
 
+import org.geotools.factory.Hints
 import org.geotools.geometry.jts.JTS
-import org.geotools.referencing.CRS
 import org.geotools.referencing.crs.DefaultGeocentricCRS
 import org.opengis.referencing.crs.CoordinateReferenceSystem
+
 import com.vividsolutions.jts.geom.Coordinate
+
 import latis.dm.Function
 import latis.dm.Number
 import latis.dm.Real
-import latis.dm.Sample
 import latis.dm.Tuple
 import latis.dm.Variable
 import latis.metadata.Metadata
-import latis.util.iterator.MappingIterator
-import org.geotools.factory.Hints
+import latis.util.Crs
 
 /**
  * Transform from ECEF to WGS84 3D.
  */
 class Transform extends Operation {
   
-  Hints.putSystemDefault(Hints.FORCE_LONGITUDE_FIRST_AXIS_ORDER, true)
-  
   val sourceCRS: CoordinateReferenceSystem = DefaultGeocentricCRS.CARTESIAN //EPSG:4978
-  val targetCRS: CoordinateReferenceSystem = CRS.decode("epsg:4979") //WGS84 3D
+  val targetCRS: CoordinateReferenceSystem = Crs.decode("EPSG:4979") //WGS84 3D
   
-  lazy val transform = CRS.findMathTransform(sourceCRS, targetCRS)
+  lazy val transform = Crs.findMathTransform(sourceCRS, targetCRS)
   
   //Note, applies to any tuple with 3 Numbers.
   //TODO: match name or metadata convention for geolocation
@@ -50,7 +48,7 @@ class Transform extends Operation {
    */
   override def applyToFunction(function: Function): Option[Variable] = {
     super.applyToFunction(function) match {
-      case Some(f: Function) => Some(Function(f.getDomain, f.getRange, f.iterator, f.getMetadata + ("epsg" -> "4979")))
+      case Some(f: Function) => Some(Function(f.getDomain, f.getRange, f.iterator, f.getMetadata + ("crs" -> "EPSG:4979")))
       case other => other
     }
   }

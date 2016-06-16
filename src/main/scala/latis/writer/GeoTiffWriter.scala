@@ -8,6 +8,7 @@ import java.awt.image.Raster
 import java.awt.image.WritableRaster
 
 import scala.collection.JavaConversions.bufferAsJavaList
+import scala.collection.JavaConverters.asScalaBufferConverter
 import scala.collection.mutable.ListBuffer
 
 import org.geotools.coverage.CoverageFactoryFinder
@@ -16,7 +17,6 @@ import org.geotools.data.DataUtilities
 import org.geotools.data.collection.ListFeatureCollection
 import org.geotools.data.simple.SimpleFeatureCollection
 import org.geotools.factory.CommonFactoryFinder
-import org.geotools.factory.Hints
 import org.geotools.feature.simple.SimpleFeatureBuilder
 import org.geotools.geometry.jts.JTSFactoryFinder
 import org.geotools.geometry.jts.ReferencedEnvelope
@@ -24,13 +24,11 @@ import org.geotools.map.FeatureLayer
 import org.geotools.map.GridCoverageLayer
 import org.geotools.map.Layer
 import org.geotools.map.MapContent
-import org.geotools.referencing.CRS
 import org.geotools.renderer.lite.StreamingRenderer
 import org.geotools.styling.SLD
 import org.geotools.styling.Style
 import org.opengis.feature.simple.SimpleFeature
 import org.opengis.geometry.Envelope
-import org.opengis.referencing.crs.CoordinateReferenceSystem
 import org.opengis.referencing.cs.AxisDirection.EAST
 import org.opengis.referencing.cs.AxisDirection.NORTH
 
@@ -39,16 +37,14 @@ import com.vividsolutions.jts.geom.Coordinate
 import latis.dm.Dataset
 import latis.dm.Function
 import latis.dm.Number
+import latis.dm.Real
 import latis.dm.Sample
 import latis.dm.Tuple
-import latis.dm.Real
-import latis.util.ColorModels
-import latis.util.iterator.PeekIterator
 import latis.util.CircleMarkPointStyle
+import latis.util.ColorModels
+import latis.util.Crs
 import latis.util.WindMarkPointStyle
-import org.geotools.feature.FeatureCollection
-import org.geotools.factory.Hints
-import org.geotools.referencing.ReferencingFactoryFinder
+import latis.util.iterator.PeekIterator
 
 /**
  * Uses Geotools to write a Geotiff image. The Dataset to be written must be modeled 
@@ -62,30 +58,18 @@ import org.geotools.referencing.ReferencingFactoryFinder
  * Feature Functions (lines, points) must be named "line" or "points" respectively 
  * and have a range consisting of a Tuple of longitude and latitude values.
  *  
- * All Functions can have a coordinate reference system specified by using an EPSG code 
- * in the Metadata and will default to the code 4326 if no "epsg" Metadata is specified. 
+ * All Functions can have a coordinate reference system specified by using a CRS code 
+ * in the Metadata and will default to the EPSG:4326 if no "crs" Metadata is specified. 
  */
 class GeoTiffWriter extends Writer {
-  
-  Hints.putSystemDefault(Hints.FORCE_LONGITUDE_FIRST_AXIS_ORDER, true)
-  
-  /**
-   * Get the CoordinateReferenceSystem defined by epsg code
-   * in this Function's Metadata. If no "epsg" metadata is defined,
-   * default to WGS84 (epsg:4326).
-   */
-  def getCrs(function: Function): CoordinateReferenceSystem = {
-    function.getMetadata("epsg") match {
-      case Some("404000") => CRS.decode("epsg:4326") //404000 is an unusable default when reading images
-      case Some(s) => CRS.decode(s"epsg:$s")
-      case None => CRS.decode("epsg:4326")
-    }
-  }
   
   def getLatLon(s: Sample): (Double, Double) = (s.findVariableByName("latitude"), s.findVariableByName("longitude")) match {
     case (Some(Number(lat)), Some(Number(lon))) => (lat,lon)
     case _ => throw new Exception("Sample did not contain variables named 'latitude and 'longitude'.")
   }
+  
+  val lonSet = ListBuffer[Double]()
+  val latSet = ListBuffer[Double]()
   
   /**
    * Get the width, height, and number of variables in the range of the given function. 
@@ -97,8 +81,10 @@ class GeoTiffWriter extends Writer {
     val (lats, lons) = samples.map(getLatLon).unzip
     
     val width = lons.distinct.size
+    lonSet ++= lons.distinct
     
     val height = lats.distinct.size
+    latSet ++= lats.distinct
     
     val bands = samples.head match {
       case Sample(_, n: Number) => 1
@@ -148,7 +134,7 @@ class GeoTiffWriter extends Writer {
    * relative to a coordinate system defined in the metadata.
    */
   def getEnvelope(function: Function, raster: WritableRaster): Envelope = {
-    val crs = getCrs(function)
+    val crs = Crs.getCrs(function)
     
     val bounds = fillRaster(function, raster)
     
@@ -166,26 +152,15 @@ class GeoTiffWriter extends Writer {
   
   /**
    * Create a buffered image of this function. 
-   * If a color map is defined for this function, it is applied here.
    */
   def getImage(function: Function, raster: WritableRaster): BufferedImage = {
-    function.getMetadata("color_map") match {
-      case None => {
-        raster.getNumBands match {
-          case 1 => {
-            val image = new BufferedImage(raster.getWidth, raster.getHeight, BufferedImage.TYPE_BYTE_GRAY)
-            image.setData(raster)
-            image
-          }
-          case 3 => {
-            val image = new BufferedImage(raster.getWidth, raster.getHeight, BufferedImage.TYPE_3BYTE_BGR)
-            image.setData(raster)
-            image
-          }
-        }
-      }
-      case Some(name) => new BufferedImage(ColorModels(name), raster, false, null)
+    val typ = raster.getNumBands match {
+      case 1 => BufferedImage.TYPE_BYTE_GRAY
+      case 3 => BufferedImage.TYPE_3BYTE_BGR
     }
+    val image = new BufferedImage(raster.getWidth, raster.getHeight, typ)
+    image.setData(raster)
+    image
   }
   
   /**
@@ -204,9 +179,12 @@ class GeoTiffWriter extends Writer {
    */
   def getStyle(function: Function): Style = {
     val sf = CommonFactoryFinder.getStyleFactory
-    val sym = if(function.hasName("line")) sf.getDefaultLineSymbolizer
-      else if(function.hasName("points")) CircleMarkPointStyle.getCustomPointCircleSymbolizer(sf)
-      else sf.getDefaultRasterSymbolizer
+    val sym = function.getMetadata("layerType") match {
+      case Some("line") => sf.getDefaultLineSymbolizer
+      case Some("points") => CircleMarkPointStyle.getCustomPointCircleSymbolizer(sf)
+      case Some("image") | None => sf.getDefaultRasterSymbolizer
+      case Some(typ) => throw new Exception("Unknown layerType: " + typ)
+    }
     SLD.wrapSymbolizers(sym)
   }
   
@@ -214,12 +192,12 @@ class GeoTiffWriter extends Writer {
    * Makes a FeatureCollection containing a single line.
    */
   def getLineCollection(function: Function): SimpleFeatureCollection = {
-    val crs = getCrs(function)
+    val crs = Crs.getCrs(function)
     val cs = crs.getCoordinateSystem
     
-    val srid = function.getMetadata("epsg") match {
-      case Some("4979") => "4326" //make it 2D
-      case Some(s) => s
+    val srid = function.getMetadata("crs") match {
+      case Some("EPSG:4979") => "4326" //make it 2D
+      case Some(s) if(s.matches("""EPSG:\d*""")) => s.stripPrefix("EPSG:")
       case None => "4326"
     }
     
@@ -250,12 +228,12 @@ class GeoTiffWriter extends Writer {
    * sample in the function.
    */
   def getPointCollection(function: Function): SimpleFeatureCollection = {
-    val crs = getCrs(function)
+    val crs = Crs.getCrs(function)
     val cs = crs.getCoordinateSystem
     
-    val srid = function.getMetadata("epsg") match {
-      case Some("4979") => "4326" //make it 2D
-      case Some(s) => s
+    val srid = function.getMetadata("crs") match {
+      case Some("EPSG:4979") => "4326" //make it 2D
+      case Some(s) if(s.matches("""EPSG:\d*""")) => s.stripPrefix("EPSG:")
       case None => "4326"
     }
     
@@ -286,24 +264,33 @@ class GeoTiffWriter extends Writer {
   /**
    * Constructs a layer using a coverage and a style.
    */
-  def getLayer(function: Function): Seq[Layer] = {
-    if(function.hasName("line")) {
+  def getLayer(function: Function): Seq[Layer] = function.getMetadata("layerType") match {
+    case Some("line") => {
       val fcol = getLineCollection(function)
       val style = getStyle(function)
       Seq(new FeatureLayer(fcol, style))
-    } else if(function.hasName("points")) {
+    }
+    case Some("points") => {
       val fcol = getPointCollection(function)
       val style = getStyle(function)
       Seq(new FeatureLayer(fcol, style))
-    } else if(function.hasName("image")) {
-      val coverage = getCoverage(function)
-      val style = getStyle(function)
-      Seq(new GridCoverageLayer(coverage, style))
-    } else if(function.hasName("wind")) {
-      getWinArrowLayers(function).toSeq
-    } else {
-      throw new Exception("Couldn't apply a layer to function: " + function.getName)
     }
+    case Some("wind") => {
+      getWinArrowLayers(function).toSeq
+    }
+    case Some("image") | None => {
+      val coloredf = function.getMetadata("color_model") match {
+        case None => function
+        case Some(name) => {
+          val f = ColorModels(name).compose(function)
+          Function(f.iterator.toSeq, f.getMetadata) //make a reusable function
+        }
+      }
+      val coverage = getCoverage(coloredf)
+      val style = getStyle(coloredf)
+      Seq(new GridCoverageLayer(coverage, style, "image"))
+    }
+    case Some(typ) => throw new Exception("Unknown layerType: " + typ)
   }
   
   def getWindNorm(u: Double, v: Double): Double = {
@@ -368,7 +355,6 @@ class GeoTiffWriter extends Writer {
     val map = new MapContent()
     map.setTitle(ds.getName)
 
-    //val lf = layers.flatten
     layers.foreach { x => map.addLayer(x)}
    
     map
@@ -382,17 +368,17 @@ class GeoTiffWriter extends Writer {
     val ds = dataset.force
     val map = getMap(ds)
     
-    //the image function must have gridded data with an appropriate width and height
-    val imagefunc = ds.findVariableByName("image").get.asInstanceOf[Function]
-    val (width, height, bands) = getDimensions(imagefunc)
+    //get the bounds of only the image layers
+    val imageLayers = map.layers.asScala.collect { case l: GridCoverageLayer => l }
+    val imgRecs = imageLayers.map(l => l.getCoverage.getEnvelope2D.getBounds2D)
+    val imgEnv = imgRecs.reduceLeft(_.createUnion(_))
+    val mapBounds = new ReferencedEnvelope(imgEnv, map.getCoordinateReferenceSystem)
     
     //create the image that the dataset will be written to.
-    val image = new BufferedImage(width, height, BufferedImage.TYPE_3BYTE_BGR)
+    val imgBounds = new Rectangle(lonSet.distinct.size, latSet.distinct.size)
+    val image = new BufferedImage(imgBounds.getWidth.toInt, imgBounds.getHeight.toInt, BufferedImage.TYPE_3BYTE_BGR)
     val gr = image.createGraphics
-    
-    val mapBounds = map.getViewport.getBounds
-    val imgBounds = new Rectangle(width, height)
-    
+        
     //use a renderer to paint the map onto the image
     val renderer = new StreamingRenderer()
     renderer.setMapContent(map)
