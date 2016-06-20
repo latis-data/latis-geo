@@ -98,3 +98,8 @@ class ImageTileAggregation extends TileAggregation() {
   }
   
 }
+
+object ImageTileAggregation {
+
+  def apply() = new ImageTileAggregation()
+}
