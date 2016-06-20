@@ -85,7 +85,7 @@ class ImageTileAggregation extends TileAggregation() {
   
   def aggregateV(ds1: Dataset, ds2: Dataset) = {
     val (it1, it2, f) = (ds1, ds2) match {
-      case (Dataset(f @ Function(it1)), Dataset(Function(it2))) => (it1, it2, f)
+      case (Dataset(f @ Function(it1)), Dataset(Function(it2))) => (it2, it1, f)
     }
     
     val md = f.getMetadata("epsg") match {
