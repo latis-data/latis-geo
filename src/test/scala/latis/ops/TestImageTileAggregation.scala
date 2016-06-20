@@ -125,7 +125,7 @@ class TestImageTileAggregation {
   
     
     
-  @Test @Ignore //TODO: left/right looks good but top/bottom is reversed
+  //@Test
   def join_wmts_tiles = {
     //http://kestrel:8080/latis-noms/latis/wmts_tiles.txt?time=2014-09-15&level=1
     //0, -180.0, -60.0, 0.0, 90.0, 2014-09-15/EPSG4326_250m/1/0/0.jpg
@@ -147,7 +147,8 @@ class TestImageTileAggregation {
     val ops4 = List(RowColToLonLat(-60.0, 60.0, -90.0, 0.0))
     val ds4 = ImageReader(baseUrl+"2014-09-15/EPSG4326_250m/1/1/1.jpg").getDataset(ops4)
     
-    val ds = (new ImageTileAggregation())(List(ds1,ds2,ds3,ds4))
+    //val ds = (new ImageTileAggregation())(List(ds1,ds2,ds3,ds4))
+    val ds = (new ImageTileAggregation())(List(ds1,ds3))
     
     //println(ds) //((longitude, latitude) -> (band0, band1, band2))
     //println(ds.getLength)  //1048576  (512 + 512)^2
