@@ -19,7 +19,7 @@ class ImageTileAggregation extends TileAggregation() {
    * Determine whether this is a horizontal or vertical aggregation and 
    * delegate to respective methods.
    */
-  override def aggregate(dataset1: Dataset, dataset2: Dataset) = {
+  override def aggregate(dataset1: Dataset, dataset2: Dataset): Dataset = {
     val ds1 = dataset1.force
     val ds2 = dataset2.force
     
@@ -69,7 +69,7 @@ class ImageTileAggregation extends TileAggregation() {
     s.reduceLeft(aggregate(_,_))
   }
   
-  def aggregateH(ds1: Dataset, ds2: Dataset, dim1: Int, dim2: Int) = {
+  def aggregateH(ds1: Dataset, ds2: Dataset, dim1: Int, dim2: Int): Dataset = {
     val (it1, it2, f) = (ds1, ds2) match {
       case (Dataset(f @ Function(it1)), Dataset(Function(it2))) => (it1.grouped(dim1), it2.grouped(dim2), f)
     }
@@ -83,7 +83,7 @@ class ImageTileAggregation extends TileAggregation() {
     Dataset(Function(it.head.domain, it.head.range, it, md))
   }
   
-  def aggregateV(ds1: Dataset, ds2: Dataset) = {
+  def aggregateV(ds1: Dataset, ds2: Dataset): Dataset = {
     val (it1, it2, f) = (ds1, ds2) match {
       case (Dataset(f @ Function(it1)), Dataset(Function(it2))) => (it2, it1, f)
     }
@@ -97,4 +97,9 @@ class ImageTileAggregation extends TileAggregation() {
     Dataset(Function(it.head.domain, it.head.range, it, md))
   }
   
+}
+
+object ImageTileAggregation {
+
+  def apply(): ImageTileAggregation = new ImageTileAggregation()
 }
