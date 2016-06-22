@@ -50,8 +50,8 @@ class TestImageTileAggregation {
     val data = joined.toDoubleMap
     
     val explon = List(0,1)
-    val explat = List(0,1,2,3)
-    val expa = List(0,1,4,5,8,9,12,13)
+    val explat = List(2,3,0,1)
+    val expa = List(8,9,12,13,0,1,4,5)
     
     assert(explon.equals(data("longitude").toSeq.distinct))
     assert(explat.equals(data("latitude").toSeq.distinct))
@@ -71,9 +71,9 @@ class TestImageTileAggregation {
     val data = joined.toDoubleMap
     
     val explon = List(0,1,2,3)
-    val explat = List(0,1,2,3)
-    val expa = List.range(0,16)
-    
+    val explat = List(2,3,0,1)
+    val expa = List.range(8,16) ++ List.range(0,8) //(8.0,9,10,11,12,13,14,15,0,1,2,3,4,5,6,7)
+
     assert(explon.equals(data("longitude").toSeq.distinct))
     assert(explat.equals(data("latitude").toSeq.distinct))
     assert(expa.equals(data("a").toSeq))
@@ -86,9 +86,9 @@ class TestImageTileAggregation {
     val data = joined.toDoubleMap
     
     val explon = List(0,1,2,3)
-    val explat = List(0,1,2,3)
-    val expa = List.range(0,16)
-    
+    val explat = List(2,3,0,1)
+    val expa = List.range(8,16) ++ List.range(0,8)
+
     assert(explon.equals(data("longitude").toSeq.distinct))
     assert(explat.equals(data("latitude").toSeq.distinct))
     assert(expa.equals(data("a").toSeq))
