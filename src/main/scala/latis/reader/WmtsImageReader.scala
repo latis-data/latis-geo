@@ -8,6 +8,7 @@ import java.io.File
 import com.typesafe.scalalogging.LazyLogging
 import latis.time.Time
 import latis.ops.agg.ImageTileAggregation
+import latis.util.LatisProperties
 
 /**
  * Create a geo-referenced image dataset for WMTS tiles.
@@ -39,10 +40,18 @@ class WmtsImageReader extends DatasetAccessor with LazyLogging {
   private var baseUrl: String = null
   
   def getDataset(operations: Seq[Operation]): Dataset = {
+    // Get zoom level from latis.properties
+    val zoomLevel = LatisProperties.get("reader.modis_image.level") match {
+      case Some(s) => s.toInt
+      case None => -1
+    }
+    println("got zoom level from latis.properties: " + zoomLevel)
+    val ops = operations :+ Selection("level=" + zoomLevel)
+    
     //Get the dataset of tiles for the given ops.
     //  (time -> index -> (minLon, maxLon, minLat, maxLat, file))
     tileListReader = DatasetAccessor.fromName("wmts_tiles")
-    val tileds = tileListReader.getDataset(operations)
+    val tileds = tileListReader.getDataset(ops)
 
     //get the base URL for the tile data from the wmts dataset metadata
     baseUrl = tileds.getMetadata.get("baseUrl") match {
