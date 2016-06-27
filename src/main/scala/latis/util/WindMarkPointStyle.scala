@@ -37,7 +37,8 @@ object WindMarkPointStyle {
     // controls              color opacity (0 to 1)
     val fill = sf.fill(null, null, null) // no fill so we get open arrows
     
-    val mark = sf.mark(filterFactory.literal("windbarbs://default("+ speed +")[kts]"), fill, stroke)
+    val mark = sf.mark(filterFactory.literal("windbarbs://default("+ speed +")[kts]"), fill, stroke) //WIND BARB
+    //val mark = sf.mark(filterFactory.literal("extshape://arrow"), fill, stroke)                        //WIND VECTOR 
     
     // needed to do this since sf.graphic() below requries a java list
     val sl = scala.collection.mutable.ListBuffer[GraphicalSymbol](mark)
