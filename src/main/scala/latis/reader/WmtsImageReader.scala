@@ -41,11 +41,11 @@ class WmtsImageReader extends DatasetAccessor with LazyLogging {
   
   def getDataset(operations: Seq[Operation]): Dataset = {
     // Get zoom level from latis.properties
-    val zoomLevel = LatisProperties.get("reader.modis_image.level") match {
+    val zoomLevel = getProperty("level") match {
       case Some(s) => s.toInt
       case None => -1
     }
-    println("got zoom level from latis.properties: " + zoomLevel)
+    logger.debug("WMTS tiles zoom level set to: " + zoomLevel);
     val ops = operations :+ Selection("level=" + zoomLevel)
     
     //Get the dataset of tiles for the given ops.
