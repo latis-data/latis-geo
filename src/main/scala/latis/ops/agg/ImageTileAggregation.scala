@@ -62,11 +62,14 @@ class ImageTileAggregation extends TileAggregation() {
     val dss = datasets.map(_.force)
     val (ordered, rowcount) = orderTiles(dss)
     
-    val rows = ordered.grouped(dss.size/rowcount)
-    //aggregate within each row
-    val s = rows.map(_.reduceLeft(aggregate(_,_)))
-    //aggregate the rows
-    s.reduceLeft(aggregate(_,_))
+    if (rowcount == 0) Dataset.empty
+    else {
+      val rows = ordered.grouped(dss.size/rowcount)
+      //aggregate within each row
+      val s = rows.map(_.reduceLeft(aggregate(_,_)))
+      //aggregate the rows
+      s.reduceLeft(aggregate(_,_))
+    }
   }
   
   def aggregateH(ds1: Dataset, ds2: Dataset, dim1: Int, dim2: Int): Dataset = {

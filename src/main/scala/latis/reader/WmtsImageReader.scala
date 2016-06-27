@@ -103,9 +103,17 @@ class WmtsImageReader extends DatasetAccessor with LazyLogging {
     val url = if (baseUrl.endsWith(File.separator)) baseUrl + file
     else baseUrl + File.separator + file
     logger.debug(s"Reading image: " + url)
-    imageReader = ImageReader(url)
-    val imageds = imageReader.getDataset()
-    RowColToLonLat(minLon, maxLon, minLat, maxLat)(imageds)
+    
+    var dataset = Dataset.empty
+    try {
+      imageReader = ImageReader(url)
+      val imageds = imageReader.getDataset()
+      dataset = RowColToLonLat(minLon, maxLon, minLat, maxLat)(imageds)
+    } catch {
+      case e: Exception => logger.warn("Failed to read image: " + url, e)
+    }
+    
+    dataset
   }
   
   private def isSpatialSelection(op: Operation) : Boolean = op match {

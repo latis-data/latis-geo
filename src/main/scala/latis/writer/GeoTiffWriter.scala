@@ -350,6 +350,7 @@ class GeoTiffWriter extends Writer {
         case _ => None
       }).flatten
       case Dataset(f: Function) => getLayer(f)
+ //TODO: deal with empty dataset (e.g. no image found)
     }
     
     val map = new MapContent()
