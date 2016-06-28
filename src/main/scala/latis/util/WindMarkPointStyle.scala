@@ -37,8 +37,12 @@ object WindMarkPointStyle {
     // controls              color opacity (0 to 1)
     val fill = sf.fill(null, null, null) // no fill so we get open arrows
     
-    val mark = sf.mark(filterFactory.literal("windbarbs://default("+ speed +")[kts]"), fill, stroke) //WIND BARB
-    //val mark = sf.mark(filterFactory.literal("extshape://arrow"), fill, stroke)                        //WIND VECTOR 
+    val mark = LatisProperties.get("noms.wind.style") match {
+      case Some(s) if (s == "barb")   => sf.mark(filterFactory.literal("windbarbs://default("+ speed +")[kts]"), fill, stroke) //Wind Barb
+      case Some(s) if (s == "vector") => sf.mark(filterFactory.literal("extshape://arrow"), fill, stroke)                      //Wind Vector  
+      case None => throw new Error("The noms.wind.style property is undefined.")  
+      case _    => throw new Error("The noms.wind.style property is not properly defined.")
+    }
     
     // needed to do this since sf.graphic() below requries a java list
     val sl = scala.collection.mutable.ListBuffer[GraphicalSymbol](mark)
@@ -46,9 +50,9 @@ object WindMarkPointStyle {
     
     val opacity: Expression = null
     
-    val windbarbsize = LatisProperties.get("noms.wind.scalar") match {
+    val windbarbsize = LatisProperties.get("noms.wind.scale") match {
       case Some(s) => s.toInt
-      case None => throw new Error("The noms.wind.scalar property is undefined.")
+      case None => throw new Error("The noms.wind.scale property is undefined.") 
     }
     val size: Expression = filterFactory.literal(windbarbsize) // controls the size of the arrow
     val rotation: Expression = filterFactory.literal(angle) // controls the rotation from north of the arrow
