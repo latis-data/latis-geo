@@ -10,6 +10,11 @@ import latis.dm.Tuple
 import latis.metadata.Metadata
 import org.geotools.factory.Hints
 import org.junit.Ignore
+import org.opengis.referencing.crs.CoordinateReferenceSystem
+import org.geotools.referencing.crs.DefaultGeocentricCRS
+import latis.util.Crs
+import com.vividsolutions.jts.geom.Coordinate
+import org.geotools.geometry.jts.JTS
 
 class TestTransform {
   
@@ -74,6 +79,20 @@ class TestTransform {
     val data = ds.toDoubleMap
     assertEquals(43.301, data("latitude")(0), 0.0000001)
     assertEquals(-77.626667, data("longitude")(0), 0.00000000001)
+  }
+  
+  @Test @Ignore //breaks via gradle, works in eclipse (NOMS-108)
+  def noms_108 = {
+    val sourceCRS: CoordinateReferenceSystem = DefaultGeocentricCRS.CARTESIAN //EPSG:4978
+    val targetCRS: CoordinateReferenceSystem = Crs.decode("EPSG:4979") //WGS84 3D
+  
+    val transform = Crs.findMathTransform(sourceCRS, targetCRS)
+    val coord = new Coordinate(10.98798734, 11.0, 12.0)
+    val tcoord = JTS.transform(coord, null, transform)
+    //println(tcoord)
+    assertEquals(45.031302303371625, tcoord.getOrdinate(0), 0.0)
+    assertEquals(-24.97734075714939, tcoord.getOrdinate(1), 0.0)
+    assertEquals(-6381929.827982709, tcoord.getOrdinate(2), 0.0)
   }
   
 }
