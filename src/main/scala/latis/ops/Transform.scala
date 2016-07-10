@@ -35,9 +35,10 @@ class Transform extends Operation with LazyLogging {
       try {
         val coord = new Coordinate(x, y, z)
         val tcoord = JTS.transform(coord, null, transform)
-        val tup = Tuple(Real(Metadata("longitude"), tcoord.x),
-          Real(Metadata("latitude"), tcoord.y),
-          Real(Metadata("altitude"), tcoord.z))
+        val reals = Seq(Real(Metadata("longitude"), tcoord.x),
+                        Real(Metadata("latitude"), tcoord.y),
+                        Real(Metadata("altitude"), tcoord.z))
+        val tup = Tuple(reals, tuple.getMetadata)
         Some(tup)
       } catch {
         case e: Exception => {
