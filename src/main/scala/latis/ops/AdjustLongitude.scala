@@ -45,7 +45,6 @@ class AdjustLongitude extends Operation {
   }
 }
 
-object AdjustLongitude {
-  
-  def apply(): AdjustLongitude = new AdjustLongitude()
+object AdjustLongitude extends OperationFactory {
+  override def apply(): AdjustLongitude = new AdjustLongitude()
 }
