@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<dataset>
+  <metadata name="tiff"/> 
+  <adapter class="latis.reader.tsml.GeoTiffAdapter"
+           location="tif/little_tif.tif" />
+           
+  <function>
+    <tuple>
+      <real>
+        <metadata name="lat"/>
+      </real>
+      <real>
+        <metadata name="lon"/>
+      </real>
+    </tuple>
+    <tuple>
+      <integer>
+        <metadata name="red"/>
+      </integer>
+      <integer>
+        <metadata name="green"/>
+      </integer>
+      <integer>
+        <metadata name="blue"/>
+      </integer>
+    </tuple>
+  </function>
+
+</dataset>
+

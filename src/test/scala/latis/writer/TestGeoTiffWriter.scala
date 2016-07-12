@@ -8,12 +8,14 @@ import latis.reader.tsml.TsmlReader
 
 class TestGeoTiffWriter {
   
-  @Test
+  //@Test
   def test {
     val file = new File("src/test/resources/tif/test.tif")
     try{
-      val ds = TsmlReader("src/test/resources/tsml/tiff.tsml").getDataset
-      new GeoTiffWriter().writeFile(ds, file)
+      val ds = TsmlReader("tiff.tsml").getDataset
+      val w = new GeoTiffWriter()
+      w.setFile(file)
+      w.write(ds)
     }
     catch {
       case e: Exception => {

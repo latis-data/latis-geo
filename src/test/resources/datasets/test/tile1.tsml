@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<dataset>
+  <metadata name="tile1"/> 
+  <adapter class="latis.reader.tsml.WorldImageAdapter"
+           location="tif/modis14-09-14/tile1.jpeg"/>
+           
+  <function id="image">
+    <tuple>
+      <real>
+        <metadata name="longitude"/>
+      </real>
+      <real>
+        <metadata name="latitude"/>
+      </real>
+    </tuple>
+    <tuple>
+      <integer>
+        <metadata name="red"/>
+      </integer>
+      <integer>
+        <metadata name="green"/>
+      </integer>
+      <integer>
+        <metadata name="blue"/>
+      </integer>
+    </tuple>
+  </function>
+
+</dataset>
+
