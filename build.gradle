@@ -40,7 +40,7 @@ dependencies {
             compile project(":latis")
         }
         prod {
-            compile 'lasp:latis:2.21.0'
+            compile 'lasp:latis:2.22.0'
         }
     }
 
