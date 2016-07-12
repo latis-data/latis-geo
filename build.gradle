@@ -56,7 +56,7 @@ publishing {
     publications {
         main(IvyPublication) {
             organisation 'lasp'
-            module 'latis-netcdf'
+            module 'latis-geo'
             revision gitflow.getVersion(project).toString()
 
             from components.java
