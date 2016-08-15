@@ -47,7 +47,7 @@ class ImageTileAggregation extends TileAggregation() {
     //group by row
     val x = zipped.groupBy(p => p._2.distinct)
     //sort the rows
-    val y = x.toSeq.sortWith((a,b) => a._1.min < b._1.min)
+    val y = x.toSeq.sortWith((a,b) => a._1.min > b._1.min)
     //simplify the type
     val rows = y.map(_._2.map(_._1))
     val rcount = rows.length
@@ -85,7 +85,7 @@ class ImageTileAggregation extends TileAggregation() {
   
   def aggregateV(ds1: Dataset, ds2: Dataset): Dataset = {
     val (it1, it2, f) = (ds1, ds2) match {
-      case (Dataset(f @ Function(it1)), Dataset(Function(it2))) => (it2, it1, f)
+      case (Dataset(f @ Function(it1)), Dataset(Function(it2))) => (it1, it2, f)
     }
     
     val md = f.getMetadata("epsg") match {
