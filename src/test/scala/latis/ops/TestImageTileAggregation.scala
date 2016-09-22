@@ -43,7 +43,7 @@ class TestImageTileAggregation {
     assert(expa.equals(data("a").toSeq))
   }
   
-  @Test @Ignore //order is messed up
+  @Test //@Ignore //order is messed up
   def simple_v {
     val joined = new ImageTileAggregation()(tile1, tile3)
     latis.writer.AsciiWriter.write(joined)
@@ -98,6 +98,11 @@ class TestImageTileAggregation {
     val f = (p: (Int, Int)) => Tuple(Real(Metadata("longitude"), p._1), Real(Metadata("latitude"), p._2))
     val dom = Seq((0,0), (1, 0), (0,1), (1,1)).map(f)
     val ran = Seq(0,1,4,5).map(Real(Metadata("a"), _))
+    /*
+     * lower left tile
+     *  4 5
+     *  0 1 
+     */
     
     Dataset(Function(dom.zip(ran).map(p => Sample(p._1, p._2))))
   }
@@ -106,7 +111,11 @@ class TestImageTileAggregation {
     val f = (p: (Int, Int)) => Tuple(Real(Metadata("longitude"), p._1), Real(Metadata("latitude"), p._2))
     val dom = Seq((2,0), (3, 0), (2,1), (3,1)).map(f)
     val ran = Seq(2,3,6,7).map(Real(Metadata("a"), _))
-    
+    /*
+     * lower right tile
+     *  6 7
+     *  2 3
+     */
     Dataset(Function(dom.zip(ran).map(p => Sample(p._1, p._2))))
   }
   
@@ -114,7 +123,11 @@ class TestImageTileAggregation {
     val f = (p: (Int, Int)) => Tuple(Real(Metadata("longitude"), p._1), Real(Metadata("latitude"), p._2))
     val dom = Seq((0,2), (1, 2), (0,3), (1,3)).map(f)
     val ran = Seq(8,9,12,13).map(Real(Metadata("a"), _))
-    
+    /*
+     * upper left tile
+     *  12 13
+     *   8  9
+     */
     Dataset(Function(dom.zip(ran).map(p => Sample(p._1, p._2))))
   }
   
@@ -122,6 +135,11 @@ class TestImageTileAggregation {
     val f = (p: (Int, Int)) => Tuple(Real(Metadata("longitude"), p._1), Real(Metadata("latitude"), p._2))
     val dom = Seq((2,2), (3, 2), (2,3), (3,3)).map(f)
     val ran = Seq(10,11,14,15).map(Real(Metadata("a"), _))
+    /*
+     * upper right tile
+     *  14 15
+     *  10 11
+     */
     
     Dataset(Function(dom.zip(ran).map(p => Sample(p._1, p._2))))
   }
