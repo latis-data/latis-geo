@@ -2,7 +2,7 @@
 
 <dataset>
   <metadata name="tile3"/> 
-  <adapter class="latis.reader.tsml.GeoImageAdapter"
+  <adapter class="latis.reader.tsml.WorldImageAdapter"
            location="tif/modis14-09-14/tile3.jpeg"/>
            
   <function id="image">
