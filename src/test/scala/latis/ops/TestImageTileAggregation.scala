@@ -8,6 +8,7 @@ import latis.writer.Writer
 import latis.dm._
 import latis.metadata.Metadata
 import latis.reader.ImageReader
+import latis.writer.AsciiWriter
 
 class TestImageTileAggregation {
   
@@ -43,15 +44,14 @@ class TestImageTileAggregation {
     assert(expa.equals(data("a").toSeq))
   }
   
-  @Test @Ignore //order is messed up
+  @Test //order is messed up
   def simple_v {
     val joined = new ImageTileAggregation()(tile1, tile3)
-    latis.writer.AsciiWriter.write(joined)
     val data = joined.toDoubleMap
     
     val explon = List(0,1)
-    val explat = List(2,3,0,1)
-    val expa = List(8,9,12,13,0,1,4,5)
+    val explat = List(0,1,2,3)
+    val expa = List(0,1,4,5,8,9,12,13)
     
     assert(explon.equals(data("longitude").toSeq.distinct))
     assert(explat.equals(data("latitude").toSeq.distinct))
@@ -64,31 +64,29 @@ class TestImageTileAggregation {
     val data = joined.toDoubleMap
   }
   
-  @Test @Ignore //order is messed up
+  @Test //order is messed up
   def seq_ordered {
     val joined = new ImageTileAggregation()(Seq(tile1, tile2, tile3, tile4))
-    latis.writer.AsciiWriter.write(joined)
-    val data = joined.toDoubleMap
-    
-    val explon = List(0,1,2,3)
-    val explat = List(2,3,0,1)
-    val expa = List.range(8,16) ++ List.range(0,8) //(8.0,9,10,11,12,13,14,15,0,1,2,3,4,5,6,7)
-
-    assert(explon.equals(data("longitude").toSeq.distinct))
-    assert(explat.equals(data("latitude").toSeq.distinct))
-    assert(expa.equals(data("a").toSeq))
-  }
-  
-  @Test @Ignore //order is messed up
-  def seq_unordered {
-    val joined = new ImageTileAggregation()(Seq(tile3, tile2, tile4, tile1))
-    latis.writer.AsciiWriter.write(joined)
     val data = joined.toDoubleMap
     
     val explon = List(0,1,2,3)
     val explat = List(2,3,0,1)
     val expa = List.range(8,16) ++ List.range(0,8)
-
+    
+    assert(explon.equals(data("longitude").toSeq.distinct))
+    assert(explat.equals(data("latitude").toSeq.distinct))
+    assert(expa.equals(data("a").toSeq))
+  }
+  
+  @Test //order is messed up
+  def seq_unordered {
+    val joined = new ImageTileAggregation()(Seq(tile3, tile2, tile4, tile1))
+    val data = joined.toDoubleMap
+    
+    val explon = List(0,1,2,3)
+    val explat = List(2,3,0,1)
+    val expa = List.range(8,16) ++ List.range(0,8)
+    
     assert(explon.equals(data("longitude").toSeq.distinct))
     assert(explat.equals(data("latitude").toSeq.distinct))
     assert(expa.equals(data("a").toSeq))
@@ -128,7 +126,7 @@ class TestImageTileAggregation {
   
     
     
-  @Test
+  @Test @Ignore
   def join_wmts_tiles = {
     //http://kestrel:8080/latis-noms/latis/wmts_tiles.txt?time=2014-09-15&level=1
     //0, -180.0, -60.0, 0.0, 90.0, 2014-09-15/EPSG4326_250m/1/0/0.jpg
@@ -137,8 +135,9 @@ class TestImageTileAggregation {
     //0, -180.0, -60.0, -90.0, 0.0, 2014-09-15/EPSG4326_250m/1/1/0.jpg
     //0, -60.0, 60.0, -90.0, 0.0, 2014-09-15/EPSG4326_250m/1/1/1.jpg
     //0, 60.0, 180.0, -90.0, 0.0, 2014-09-15/EPSG4326_250m/1/1/2.jpg
-    val ops1 = List(RowColToLonLat(-180.0, -60.0, 0.0, 90.0))
     val baseUrl = "http://map1.vis.earthdata.nasa.gov/wmts-geo/MODIS_Terra_CorrectedReflectance_TrueColor/default/"
+
+    val ops1 = List(RowColToLonLat(-180.0, -60.0, 0.0, 90.0))
     val ds1 = ImageReader(baseUrl+"2014-09-15/EPSG4326_250m/1/0/0.jpg").getDataset(ops1)
     
     val ops2 = List(RowColToLonLat(-60.0, 60.0, 0.0, 90.0))
@@ -150,11 +149,10 @@ class TestImageTileAggregation {
     val ops4 = List(RowColToLonLat(-60.0, 60.0, -90.0, 0.0))
     val ds4 = ImageReader(baseUrl+"2014-09-15/EPSG4326_250m/1/1/1.jpg").getDataset(ops4)
     
-    //val ds = (new ImageTileAggregation())(List(ds1,ds2,ds3,ds4))
-    val ds = (new ImageTileAggregation())(List(ds1,ds3))
+    val ds = (new ImageTileAggregation())(List(ds1,ds2,ds3,ds4))
     
     //println(ds) //((longitude, latitude) -> (band0, band1, band2))
     //println(ds.getLength)  //1048576  (512 + 512)^2
-    Writer("/data/noms/modis_image2.tif").write(ds)
+    Writer("/tmp/modis_image2.tif").write(ds)
   }
 }
