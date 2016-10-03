@@ -23,15 +23,18 @@ class ImageTileAggregation extends TileAggregation() {
     val ds1 = dataset1.force
     val ds2 = dataset2.force
     
-    val (samples1, samples2) = (ds1, ds2) match {
-      case (Dataset(Function(it1)), Dataset(Function(it2))) => (it1.toSeq, it2.toSeq)
+    val (func1, func2, samples1, samples2) = (ds1, ds2) match {
+      case (Dataset(f1 @ Function(it1)), Dataset(f2 @ Function(it2))) => (f1, f2, it1.toSeq, it2.toSeq)
     }
     
-    val (lats1, lons1) = samples1.map(getLatLon).unzip
-    val (lats2, lons2) = samples2.map(getLatLon).unzip
+    val metadata1 = func1.getMetadata
+    val metadata2 = func2.getMetadata
     
-    if(lats1.diff(lats2).isEmpty) aggregateH(ds1, ds2, lons1.distinct.size, lons2.distinct.size)
-    else if(lons1.diff(lons2).isEmpty) aggregateV(ds1, ds2)
+    //val (lats1, lons1) = samples1.map(getLatLon).unzip
+    //val (lats2, lons2) = samples2.map(getLatLon).unzip
+    
+    if(metadata1("miny") == metadata2("miny") && metadata1("maxy") == metadata2("maxy")) aggregateH(ds1, ds2, metadata1("nrow").toInt, metadata2("nrow").toInt)
+    else if(metadata1("minx") == metadata2("minx") && metadata1("maxx") == metadata2("maxx")) aggregateV(ds1, ds2)
     else throw new IllegalArgumentException("The datasets are not aligned properly for tile aggregation.")
   }
   
