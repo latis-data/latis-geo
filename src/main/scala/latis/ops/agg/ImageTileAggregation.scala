@@ -10,7 +10,7 @@ import latis.metadata.Metadata
  */
 class ImageTileAggregation extends TileAggregation() {
   
-  def getLatLon(s: Sample): (Double, Double) = (s.findVariableByName("latitude"), s.findVariableByName("longitude")) match {
+  def getLatLon(s: Sample): (Double, Double) = (s.findVariableByName("row"), s.findVariableByName("col")) match {
     case (Some(Number(lat)), Some(Number(lon))) => (lat,lon)
     case _ => throw new Exception("Sample did not contain variables named 'latitude and 'longitude'.")
   }
@@ -43,7 +43,20 @@ class ImageTileAggregation extends TileAggregation() {
    * rows there should be.
    */
   private def orderTiles(dss: Seq[Dataset]) = {
+    
+    val minxys = dss.map { x => x match { case Dataset(f: Function) => (f.getMetadata("minx").get,f.getMetadata("miny").get) } }
+    
+    val ulcwithds = minxys zip dss
+    
+    val sortedulcwithds = ulcwithds.sortWith((a,b) => a._1._1.toDouble < b._1._1.toDouble)
+    
+    val orderedDSs = sortedulcwithds.map(f => f._2)
+    
+    val rownums = dss.map { x => x match { case Dataset(f: Function) => f.getMetadata("nrow").get.toInt }}
+    val rowcount1 = Set(rownums: _*).toSeq.foldLeft(0)(_+_)
+    /*
     val sits = dss.collect {case Dataset(Function(it)) => it.toSeq}
+    
     val (lats, lons) = sits.map(_.map(getLatLon).unzip).unzip
     
     val zipped = dss.zip(lons).zip(lats)
@@ -59,6 +72,9 @@ class ImageTileAggregation extends TileAggregation() {
     val k = rows.map(row => row.sortWith((a,b) => a._2.min < b._2.min))
     //simplify to get ordered datasets
     (k.flatMap(_.map(_._1)), rcount)
+    * 
+    */
+    (orderedDSs,rowcount1)
   }
   
   override def apply(datasets: Seq[Dataset]): Dataset = {
