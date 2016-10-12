@@ -1,7 +1,7 @@
 package latis.ops
 
-import org.junit.Ignore
-import org.junit.Test
+import org.junit.{Test,Ignore}
+import org.junit.Assert.assertEquals
 import latis.ops.agg.ImageTileAggregation
 import latis.reader.DatasetAccessor
 import latis.writer.Writer
@@ -30,7 +30,7 @@ class TestImageTileAggregation {
     Writer("~/tmp/tiles.tif").write(joined)
   }
   
-  @Test
+  @Test @Ignore
   def simple_h {
     val joined = new ImageTileAggregation()(tile1, tile2)
     val data = joined.toDoubleMap
@@ -44,7 +44,24 @@ class TestImageTileAggregation {
     assert(expa.equals(data("a").toSeq))
   }
   
-  @Test 
+  @Test
+  def simple_h_join {
+    val joined = new ImageTileAggregation()(image1, image2)
+    val data = joined.toDoubleMap
+    
+    val lon = List(-144.0, -143.0, -142.0)
+    val lat = List(36.0, 37.0)
+    val rgb = List(0.0, 1.0, 0.0, 1.0, 4.0, 5.0, 4.0, 5.0)
+    println(data("a").toSeq.distinct)
+    //AsciiWriter.write(joined)
+    assert(lon.equals(data("longitude").toSeq.distinct))
+    assert(lat.equals(data("latitude").toSeq.distinct))
+    assert(rgb.equals(data("a").toSeq))
+    
+  }
+  
+  
+  @Test @Ignore
   def simple_v {
     val joined = new ImageTileAggregation()(tile1, tile3)
     val data = joined.toDoubleMap
@@ -58,13 +75,29 @@ class TestImageTileAggregation {
     assert(expa.equals(data("a").toSeq))
   }
   
-  @Test(expected=classOf[IllegalArgumentException])
-  def mismatched {
-    val joined = new ImageTileAggregation()(tile2, tile3)
+  @Test
+  def simple_v_join {
+    val joined = new ImageTileAggregation()(image1, image3)
     val data = joined.toDoubleMap
+    
+    val lon = List(-144.0, -143.0)
+    val lat = List(36.0, 37.0, 38.0)
+    val rgb = List(0.0, 1.0, 4.0, 5.0, 0.0, 1.0, 4.0, 5.0)
+    
+    //println(data("latitude").toSeq.distinct)
+    
+    //AsciiWriter.write(joined)
+    assert(lon.equals(data("longitude").toSeq.distinct))
+    assert(lat.equals(data("latitude").toSeq.distinct))
+    assert(rgb.equals(data("a").toSeq))
   }
   
-  @Test //order is messed up
+  @Test(expected=classOf[IllegalArgumentException])
+  def mismatched {
+    val joined = new ImageTileAggregation()(image2, image3)
+  }
+  
+  @Test @Ignore
   def seq_ordered {
     val joined = new ImageTileAggregation()(Seq(tile1, tile2, tile3, tile4))
     val data = joined.toDoubleMap
@@ -78,7 +111,41 @@ class TestImageTileAggregation {
     assert(expa.equals(data("a").toSeq))
   }
   
-  @Test //order is messed up
+  @Test
+  def simple_join_all_four_ordered_images {
+    val joined = new ImageTileAggregation()(Seq(image1, image2, image3, image4))
+    val data = joined.toDoubleMap
+    
+    val lon = List(-144.0, -143.0, -142.0)
+    val lat = List(36.0, 37.0, 38.0)
+    val rgb = List(0.0, 1.0, 0.0, 1.0, 4.0, 5.0, 4.0, 5.0, 0.0, 1.0, 0.0, 1.0, 4.0, 5.0, 4.0, 5.0)
+    
+    println(data("longitude").toSeq.distinct)
+    println(data("latitude").toSeq.distinct)
+    println(data("a").toSeq)
+    
+    assert(lon.equals(data("longitude").toSeq.distinct))
+    assert(lat.equals(data("latitude").toSeq.distinct))
+    assert(rgb.equals(data("a").toSeq))
+    
+  }
+  
+  @Test
+  def simple_join_all_four_unordered_images {
+    val joined = new ImageTileAggregation()(Seq(image3, image2, image4, image1))
+    val data = joined.toDoubleMap
+    
+    val lon = List(-144.0, -143.0, -142.0)
+    val lat = List(36.0, 37.0, 38.0)
+    val rgb = List(0.0, 1.0, 0.0, 1.0, 4.0, 5.0, 4.0, 5.0, 0.0, 1.0, 0.0, 1.0, 4.0, 5.0, 4.0, 5.0)
+    
+    assert(lon.equals(data("longitude").toSeq.distinct))
+    assert(lat.equals(data("latitude").toSeq.distinct))
+    assert(rgb.equals(data("a").toSeq))
+    
+  }
+  
+  @Test @Ignore
   def seq_unordered {
     val joined = new ImageTileAggregation()(Seq(tile3, tile2, tile4, tile1))
     val data = joined.toDoubleMap
@@ -91,6 +158,69 @@ class TestImageTileAggregation {
     assert(explat.equals(data("latitude").toSeq.distinct))
     assert(expa.equals(data("a").toSeq))
   }
+  
+  
+  
+  lazy val image1 = {
+    val f = (p: (Int, Int)) => Tuple(Real(Metadata("longitude"), p._1), Real(Metadata("latitude"), p._2))
+    val dom = Seq((-144,36), (-143, 36), (-144,37), (-143,37)).map(f)
+    val ran = Seq(0,1,4,5).map(Real(Metadata("a"), _))
+    /*
+     * lower left tile
+     *  4 5
+     *  0 1 
+     */
+    
+    val ds = Dataset(Function(dom.zip(ran).map(p => Sample(p._1, p._2)),Metadata("ncol" -> "2", "minLon" -> "-144", "minLat" -> "36", "maxLon" -> "-143", "maxLat" -> "37")))
+    //AsciiWriter.write(ds)
+    ds
+  }
+  
+  lazy val image2 = {
+    val f = (p: (Int, Int)) => Tuple(Real(Metadata("longitude"), p._1), Real(Metadata("latitude"), p._2))
+    val dom = Seq((-143,36), (-142, 36), (-143,37), (-142,37)).map(f)
+    val ran = Seq(0,1,4,5).map(Real(Metadata("a"), _))
+    /*
+     * lower left tile
+     *  4 5
+     *  0 1 
+     */
+    
+    val ds = Dataset(Function(dom.zip(ran).map(p => Sample(p._1, p._2)),Metadata("ncol" -> "2", "minLon" -> "-143", "minLat" -> "36", "maxLon" -> "-142", "maxLat" -> "37")))
+    //AsciiWriter.write(ds)
+    ds
+  }
+  
+  lazy val image3 = {
+    val f = (p: (Int, Int)) => Tuple(Real(Metadata("longitude"), p._1), Real(Metadata("latitude"), p._2))
+    val dom = Seq((-144,37), (-143, 37), (-144,38), (-143,38)).map(f)
+    val ran = Seq(0,1,4,5).map(Real(Metadata("a"), _))
+    /*
+     * lower left tile
+     *  4 5
+     *  0 1 
+     */
+    
+    val ds = Dataset(Function(dom.zip(ran).map(p => Sample(p._1, p._2)),Metadata("ncol" -> "2", "minLon" -> "-144", "minLat" -> "37", "maxLon" -> "-143", "maxLat" -> "38")))
+    //AsciiWriter.write(ds)
+    ds
+  }
+  
+  lazy val image4 = {
+    val f = (p: (Int, Int)) => Tuple(Real(Metadata("longitude"), p._1), Real(Metadata("latitude"), p._2))
+    val dom = Seq((-143,37), (-142, 37), (-143,38), (-142,38)).map(f)
+    val ran = Seq(0,1,4,5).map(Real(Metadata("a"), _))
+    /*
+     * lower left tile
+     *  4 5
+     *  0 1 
+     */
+    
+    val ds = Dataset(Function(dom.zip(ran).map(p => Sample(p._1, p._2)),Metadata("ncol" -> "2", "minLon" -> "-143", "minLat" -> "37", "maxLon" -> "-142", "maxLat" -> "38")))
+    //AsciiWriter.write(ds)
+    ds
+  }
+  
   
   lazy val tile1 = {
     val f = (p: (Int, Int)) => Tuple(Real(Metadata("longitude"), p._1), Real(Metadata("latitude"), p._2))
