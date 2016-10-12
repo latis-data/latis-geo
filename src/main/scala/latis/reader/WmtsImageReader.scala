@@ -83,7 +83,6 @@ class WmtsImageReader extends DatasetAccessor with LazyLogging {
           case Sample(_, tile: Tuple) => tileToGeoImage(tile)
         })
         val aggtiles = ImageTileAggregation()(tiles)
-        //RowColToLonLat(minLon, maxLon, minLat, maxLat)(aggtiles)
         aggtiles
       }
     }
@@ -116,12 +115,11 @@ class WmtsImageReader extends DatasetAccessor with LazyLogging {
       }
       
       val newImageFunc = Function(imageFunc.getDomain, imageFunc.getRange, imageFuncIt, imageFunc.getMetadata ++ Metadata("minLon" -> minLon.toString, "minLat" -> minLat.toString, "maxLon" -> maxLon.toString, "maxLat" -> maxLat.toString))
-      dataset = Dataset(newImageFunc)
-      //dataset = RowColToLonLat(minLon, maxLon, minLat, maxLat)(imageds)
+      val ds = Dataset(newImageFunc)
+      dataset = RowColToLonLat(minLon, maxLon, minLat, maxLat)(ds)
     } catch {
       case e: Exception => logger.warn("Failed to read image: " + url, e)
     }
-    
     dataset
   }
   
