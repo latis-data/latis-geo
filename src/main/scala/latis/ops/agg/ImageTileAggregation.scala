@@ -10,7 +10,7 @@ import latis.metadata.Metadata
  */
 class ImageTileAggregation extends TileAggregation() {
   
-  def getLatLon(s: Sample): (Double, Double) = (s.findVariableByName("row"), s.findVariableByName("col")) match {
+  def getLatLon(s: Sample): (Double, Double) = (s.findVariableByName("latitude"), s.findVariableByName("longitude")) match {
     case (Some(Number(lat)), Some(Number(lon))) => (lat,lon)
     case _ => throw new Exception("Sample did not contain variables named 'latitude and 'longitude'.")
   }
@@ -33,8 +33,8 @@ class ImageTileAggregation extends TileAggregation() {
     //val (lats1, lons1) = samples1.map(getLatLon).unzip
     //val (lats2, lons2) = samples2.map(getLatLon).unzip
     
-    if(metadata1("miny") == metadata2("miny") && metadata1("maxy") == metadata2("maxy")) aggregateH(ds1, ds2, metadata1("nrow").toInt, metadata2("nrow").toInt)
-    else if(metadata1("minx") == metadata2("minx") && metadata1("maxx") == metadata2("maxx")) aggregateV(ds1, ds2)
+    if(metadata1("minLat") == metadata2("minLat") && metadata1("maxLat") == metadata2("maxLat")) aggregateH(ds1, ds2)
+    else if(metadata1("minLon") == metadata2("minLon") && metadata1("maxLon") == metadata2("maxLon")) aggregateV(ds1, ds2)
     else throw new IllegalArgumentException("The datasets are not aligned properly for tile aggregation.")
   }
   
@@ -42,18 +42,42 @@ class ImageTileAggregation extends TileAggregation() {
    * Reorder the Datasets into row major order. And figure out how many
    * rows there should be.
    */
+  private def minLat(ds: Dataset): Double = {
+    ds match {
+      case Dataset(f: Function) => f.getMetadata()("minLat").toDouble
+    }
+  }
+  private def minLon(ds: Dataset): Double = {
+    ds match {
+      case Dataset(f: Function) => f.getMetadata()("minLon").toDouble
+    }
+  }
   private def orderTiles(dss: Seq[Dataset]) = {
+    val t0 = System.nanoTime
     
-    val minxys = dss.map { x => x match { case Dataset(f: Function) => (f.getMetadata("minx").get,f.getMetadata("miny").get) } }
     
-    val ulcwithds = minxys zip dss
+    val x = dss.groupBy { x => minLat(x) }
+    //x.foreach(f => println(f._1))
+    val xx = x.map(f => f._2.sortBy { x => minLon(x) })
+    //xx.foreach { x => x.foreach { x => println(minLon(x)) } }
     
-    val sortedulcwithds = ulcwithds.sortWith((a,b) => a._1._1.toDouble < b._1._1.toDouble)
+    //val minxys = dss.map { x => x match { case Dataset(f: Function) => (f.getMetadata("minLon").get,f.getMetadata("minLat").get) } }
+    //val maxxys = dss.map { x => x match { case Dataset(f: Function) => (f.getMetadata("maxLon").get,f.getMetadata("maxLat").get) } }
+
+    //minxys.foreach(f => println("min: (" + f._1 + "," + f._2 + ")"))
+    //maxxys.foreach(f => println("max: (" + f._1 + "," + f._2 + ")"))
+
+    //println("minxys length: " + minxys.length)
+    //val ulcwithds = minxys zip dss 
+    //println("ulcwithds length: " + ulcwithds.length)
+    //val sortedulcwithds = ulcwithds.sortBy(t => t._1)
     
-    val orderedDSs = sortedulcwithds.map(f => f._2)
+    //val orderedDSs = sortedulcwithds.map(f => f._2)
     
-    val rownums = dss.map { x => x match { case Dataset(f: Function) => f.getMetadata("nrow").get.toInt }}
-    val rowcount1 = Set(rownums: _*).toSeq.foldLeft(0)(_+_)
+    //val rownums = dss.map { x => x match { case Dataset(f: Function) => f.getMetadata("nrow").get.toInt }}
+    //val rowcount1 = 1
+    
+    
     /*
     val sits = dss.collect {case Dataset(Function(it)) => it.toSeq}
     
@@ -71,27 +95,60 @@ class ImageTileAggregation extends TileAggregation() {
     //order each row by longitude
     val k = rows.map(row => row.sortWith((a,b) => a._2.min < b._2.min))
     //simplify to get ordered datasets
+    val t1 = System.nanoTime
+    println("orderTiles elapsed time: " + (t1 - t0) + "ns")
     (k.flatMap(_.map(_._1)), rcount)
     * 
     */
-    (orderedDSs,rowcount1)
+    
+    val t1 = System.nanoTime
+    println("orderTiles elapsed time: " + (t1 - t0) + "ns")
+    //(orderedDSs,rowcount1)
+    xx
+    
+    
   }
   
   override def apply(datasets: Seq[Dataset]): Dataset = {
-    val dss = datasets.map(_.force)
-    val (ordered, rowcount) = orderTiles(dss)
-    
-    if (rowcount == 0) Dataset.empty
-    else {
-      val rows = ordered.grouped(dss.size/rowcount)
+    //val dss = datasets.map(_.force)
+    //val (ordered, rowcount) = orderTiles(dss)
+    println("apply called")
+    val ordered = orderTiles(datasets)
+
+    //if (rowcount == 0) Dataset.empty
+    //else {
+      //val rows = ordered.grouped(dss.size/rowcount)
       //aggregate within each row
-      val s = rows.map(_.reduceLeft(aggregate(_,_)))
+      val s = ordered.map(_.reduceLeft(aggregateH(_,_))).toSeq.reverse // need to reverse because aggregateH returns strips orderef from south to north
       //aggregate the rows
-      s.reduceLeft(aggregate(_,_))
-    }
+      s.reduceLeft(aggregateV(_,_))
+    //}
   }
   
+  def aggregateH(ds1: Dataset, ds2: Dataset): Dataset = {
+    val t0 = System.nanoTime
+    
+    val (it1, it2, f) = (ds1, ds2) match {
+      case (Dataset(f @ Function(it1)), Dataset(Function(it2))) => {
+        val ncol = f.getMetadata()("ncol").toInt
+          (it1.grouped(ncol), it2.grouped(ncol), f)
+        }
+    }
+    
+    val md = f.getMetadata("epsg") match {
+      case Some(code) => Metadata(Map("epsg" -> code))
+      case None => Metadata.empty
+    }
+    val it = it1.zip(it2).flatMap(p => p._1 ++ p._2).buffered
+    
+    val t1 = System.nanoTime
+    println("aggregateH elapsed time: " + (t1 - t0) + "ns")
+    Dataset(Function(it.head.domain, it.head.range, it, md))
+  }
+  /*
   def aggregateH(ds1: Dataset, ds2: Dataset, dim1: Int, dim2: Int): Dataset = {
+    val t0 = System.nanoTime
+    
     val (it1, it2, f) = (ds1, ds2) match {
       case (Dataset(f @ Function(it1)), Dataset(Function(it2))) => (it1.grouped(dim1), it2.grouped(dim2), f)
     }
@@ -102,8 +159,12 @@ class ImageTileAggregation extends TileAggregation() {
     }
     val it = it1.zip(it2).flatMap(p => p._1 ++ p._2).buffered
     
+    val t1 = System.nanoTime
+    println("aggregateH elapsed time: " + (t1 - t0) + "ns")
     Dataset(Function(it.head.domain, it.head.range, it, md))
   }
+  * 
+  */
   
   def aggregateV(ds1: Dataset, ds2: Dataset): Dataset = {
     val (it1, it2, f) = (ds1, ds2) match {
