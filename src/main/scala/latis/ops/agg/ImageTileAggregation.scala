@@ -10,16 +10,17 @@ import latis.metadata.Metadata
  */
 class ImageTileAggregation extends TileAggregation() {
   
-  def getLatLon(s: Sample): (Double, Double) = (s.findVariableByName("latitude"), s.findVariableByName("longitude")) match {
-    case (Some(Number(lat)), Some(Number(lon))) => (lat,lon)
-    case _ => throw new Exception("Sample did not contain variables named 'latitude and 'longitude'.")
-  }
+//  def getLatLon(s: Sample): (Double, Double) = (s.findVariableByName("latitude"), s.findVariableByName("longitude")) match {
+//    case (Some(Number(lat)), Some(Number(lon))) => (lat,lon)
+//    case _ => throw new Exception("Sample did not contain variables named 'latitude and 'longitude'.")
+//  }
   
   /**
    * Determine whether this is a horizontal or vertical aggregation and 
    * delegate to respective methods.
    */
   override def aggregate(dataset1: Dataset, dataset2: Dataset): Dataset = {
+    //TODO: do we ever use this interface? or do we always throw a Seq of tiles to apply?
     val ds1 = dataset1.force
     val ds2 = dataset2.force
     
@@ -56,9 +57,9 @@ class ImageTileAggregation extends TileAggregation() {
     val t0 = System.nanoTime
     
     
-    val x = dss.groupBy { x => minLat(x) }
+    val x = dss.groupBy { x => minLat(x) } //group rows
     //x.foreach(f => println(f._1))
-    val xx = x.map(f => f._2.sortBy { x => minLon(x) })
+    val xx = x.map(f => f._2.sortBy { x => minLon(x) }) //sort by column within rows
     //xx.foreach { x => x.foreach { x => println(minLon(x)) } }
     
     //val minxys = dss.map { x => x match { case Dataset(f: Function) => (f.getMetadata("minLon").get,f.getMetadata("minLat").get) } }
@@ -113,25 +114,29 @@ class ImageTileAggregation extends TileAggregation() {
     //val dss = datasets.map(_.force)
     //val (ordered, rowcount) = orderTiles(dss)
     println("apply called")
-    val ordered = orderTiles(datasets)
+    val ordered = orderTiles(datasets) //effectively a 2D array: row varying slowest (outer dimension)
 
     //if (rowcount == 0) Dataset.empty
     //else {
       //val rows = ordered.grouped(dss.size/rowcount)
       //aggregate within each row
       val s = ordered.map(_.reduceLeft(aggregateH(_,_))).toSeq.reverse // need to reverse because aggregateH returns strips orderef from south to north
+      //If we leave the data in the original (row,col) space, we shouldn't need to reverse here.
+      //We can worry about that if/when we transform to a (lon,lat) grid
+      
       //aggregate the rows
       s.reduceLeft(aggregateV(_,_))
     //}
   }
   
   def aggregateH(ds1: Dataset, ds2: Dataset): Dataset = {
+    //assumes ds1 is positioned to the left of ds2
     val t0 = System.nanoTime
     
     val (it1, it2, f) = (ds1, ds2) match {
       case (Dataset(f @ Function(it1)), Dataset(Function(it2))) => {
         val ncol = f.getMetadata()("ncol").toInt
-          (it1.grouped(ncol), it2.grouped(ncol), f)
+          (it1.grouped(ncol), it2.grouped(ncol), f) //TODO: shouldn't assume both have same ncol, e.g. tiling 3rd to the 1st 2
         }
     }
     
@@ -139,10 +144,11 @@ class ImageTileAggregation extends TileAggregation() {
       case Some(code) => Metadata(Map("epsg" -> code))
       case None => Metadata.empty
     }
-    val it = it1.zip(it2).flatMap(p => p._1 ++ p._2).buffered
+    val it = it1.zip(it2).flatMap(p => p._1 ++ p._2).buffered //append pairs of rows
     
     val t1 = System.nanoTime
-    println("aggregateH elapsed time: " + (t1 - t0) + "ns")
+    println("aggregateH elapsed time: " + (t1 - t0) + "ns") //how much work is being done here? presumably the is not iterating yet
+    //TODO: update nrow, ncol metadata? and length?
     Dataset(Function(it.head.domain, it.head.range, it, md))
   }
   /*
@@ -167,6 +173,7 @@ class ImageTileAggregation extends TileAggregation() {
   */
   
   def aggregateV(ds1: Dataset, ds2: Dataset): Dataset = {
+    //assumes ds1 should be positioned above ds2 
     val (it1, it2, f) = (ds1, ds2) match {
       case (Dataset(f @ Function(it1)), Dataset(Function(it2))) => (it1, it2, f)
     }
@@ -177,6 +184,7 @@ class ImageTileAggregation extends TileAggregation() {
     }
     val it = (it1 ++ it2).buffered
     
+    //TODO: update nrow, ncol metadata? and length?
     Dataset(Function(it.head.domain, it.head.range, it, md))
   }
   
