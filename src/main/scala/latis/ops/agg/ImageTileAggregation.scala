@@ -57,7 +57,7 @@ class ImageTileAggregation extends TileAggregation() {
     val t0 = System.nanoTime
     
     
-    val x = dss.groupBy { x => minLat(x) } //group rows
+    val x = dss.groupBy { x => minLat(x) } //group rows, not ordered
     //x.foreach(f => println(f._1))
     val xx = x.map(f => f._2.sortBy { x => minLon(x) }) //sort by column within rows
     //xx.foreach { x => x.foreach { x => println(minLon(x)) } }
@@ -120,10 +120,10 @@ class ImageTileAggregation extends TileAggregation() {
     //else {
       //val rows = ordered.grouped(dss.size/rowcount)
       //aggregate within each row
-      val s = ordered.map(_.reduceLeft(aggregateH(_,_))).toSeq.reverse // need to reverse because aggregateH returns strips orderef from south to north
+      val s = ordered.map(_.reduceLeft(aggregateH(_,_)))//.toSeq.reverse // need to reverse because aggregateH returns strips orderef from south to north
       //If we leave the data in the original (row,col) space, we shouldn't need to reverse here.
       //We can worry about that if/when we transform to a (lon,lat) grid
-      
+  //TODO: order rows here???    
       //aggregate the rows
       s.reduceLeft(aggregateV(_,_))
     //}
