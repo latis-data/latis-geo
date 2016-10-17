@@ -86,18 +86,15 @@ class ImageTileAggregation extends TileAggregation() {
       case Some(code) => Metadata(Map("epsg" -> code))
       case None => Metadata.empty
     }
-    val it = it1.zip(it2).flatMap(p => p._1 ++ p._2).buffered //append pairs of rows
-    
-    val length = it.size
+    val it = it1.zip(it2).flatMap(p => p._1 ++ p._2).buffered //append pairs of rows    
     val ncol1 = f1.getMetadata()("ncol").toInt
     val nrow1 = f1.getMetadata()("nrow").toInt
     val ncol2 = f2.getMetadata()("ncol").toInt
     val nrow2 = f2.getMetadata()("nrow").toInt
-    
     //how much work is being done here? presumably the is not iterating yet
-    
-    // update nrow, ncol and length metadata
-    val sizeMD = Metadata("nrow" -> nrow1.toString, "ncol" -> (ncol1+ncol2).toString(), "length" -> length.toString)
+    // update nrow, ncol metadata
+    val sizeMD = Metadata("nrow" -> nrow1.toString, "ncol" -> (ncol1+ncol2).toString)
+    //TODO: update length metadata
     Dataset(Function(it.head.domain, it.head.range, it, sizeMD ++ md))
   }
   
@@ -112,14 +109,13 @@ class ImageTileAggregation extends TileAggregation() {
       case None => Metadata.empty
     }
     val it = (it1 ++ it2).buffered
-    val length = it.size
     val ncol1 = f1.getMetadata()("ncol").toInt
     val nrow1 = f1.getMetadata()("nrow").toInt
     val ncol2 = f2.getMetadata()("ncol").toInt
     val nrow2 = f2.getMetadata()("nrow").toInt
-    
     // update nrow, ncol and length metadata
-    val sizeMD = Metadata("nrow" -> (nrow1+nrow2).toString, "ncol" -> ncol1.toString(), "length" -> length.toString)
+    val sizeMD = Metadata("nrow" -> (nrow1+nrow2).toString, "ncol" -> ncol1.toString())
+    //TODO: update length metadata
     Dataset(Function(it.head.domain, it.head.range, it, sizeMD ++ md))
   }
   
