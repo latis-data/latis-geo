@@ -30,184 +30,67 @@ class TestImageTileAggregation {
     Writer("~/tmp/tiles.tif").write(joined)
   }
   
-  @Test @Ignore
+  @Test
   def simple_h {
     val joined = new ImageTileAggregation()(tile1, tile2)
-    AsciiWriter.write(joined)
     val data = joined.toDoubleMap
     
-    val explon = List(0,1,2,3)
+    val explon = List(0,1)
     val explat = List(0,1)
-    val expa = List(0,1,2,3,4,5,6,7)
+    val expa = List(1,2,5,6,3,4,7,8)
     
-    assert(explon.equals(data("longitude").toSeq.distinct))
-    assert(explat.equals(data("latitude").toSeq.distinct))
+    assert(explon.equals(data("row").toSeq.distinct))
+    assert(explat.equals(data("col").toSeq.distinct))
     assert(expa.equals(data("a").toSeq))
   }
   
-  @Test @Ignore
-  def simple_h_join {
-    val joined = new ImageTileAggregation()(image1, image2)
-    //AsciiWriter.write(joined)
-    val data = joined.toDoubleMap
-    
-    val lon = List(-144.0, -143.0, -142.0)
-    val lat = List(36.0, 37.0)
-    val rgb = List(0.0, 1.0, 0.0, 1.0, 4.0, 5.0, 4.0, 5.0)
-    
-    //println(data("a").toSeq.distinct)
-    //AsciiWriter.write(joined)
-    assert(lon.equals(data("longitude").toSeq.distinct))
-    assert(lat.equals(data("latitude").toSeq.distinct))
-    assert(rgb.equals(data("a").toSeq))
-    
-  }
-  
-  @Test @Ignore
+  @Test
   def simple_v {
     val joined = new ImageTileAggregation()(tile1, tile3)
     val data = joined.toDoubleMap
     
     val explon = List(0,1)
-    val explat = List(0,1,2,3)
-    val expa = List(0,1,4,5,8,9,12,13)
+    val explat = List(0,1)
+    val expa = List(1,2,5,6,9,10,13,14)
     
-    assert(explon.equals(data("longitude").toSeq.distinct))
-    assert(explat.equals(data("latitude").toSeq.distinct))
+    assert(explon.equals(data("row").toSeq.distinct))
+    assert(explat.equals(data("col").toSeq.distinct))
     assert(expa.equals(data("a").toSeq))
-  }
-  
-  @Test @Ignore
-  def simple_v_join {
-    val joined = new ImageTileAggregation()(image1, image3)
-    val data = joined.toDoubleMap
-    
-    val lon = List(-144.0, -143.0)
-    val lat = List(36.0, 37.0, 38.0)
-    val rgb = List(0.0, 1.0, 4.0, 5.0, 0.0, 1.0, 4.0, 5.0)
-    
-    //println(data("latitude").toSeq.distinct)
-    
-    //AsciiWriter.write(joined)
-    assert(lon.equals(data("longitude").toSeq.distinct))
-    assert(lat.equals(data("latitude").toSeq.distinct))
-    assert(rgb.equals(data("a").toSeq))
   }
   
   @Test @Ignore // (expected=classOf[IllegalArgumentException])
   def mismatched {
-    val joined = new ImageTileAggregation()(image2, image3)
+    val joined = new ImageTileAggregation()(tile2, tile3)
   }
   
-  @Test @Ignore
-  def simple_join_all_four_ordered_images {
-    val joined = new ImageTileAggregation()(Seq(image1, image2, image3, image4))
-    val data = joined.toDoubleMap
-    
-    val lon = List(-144.0, -143.0, -142.0)
-    val lat = List(36.0, 37.0, 38.0)
-    val rgb = List(0.0, 1.0, 0.0, 1.0, 4.0, 5.0, 4.0, 5.0, 0.0, 1.0, 0.0, 1.0, 4.0, 5.0, 4.0, 5.0)
-    
-    println(data("longitude").toSeq.distinct)
-    println(data("latitude").toSeq.distinct)
-    println(data("a").toSeq)
-    
-    assert(lon.equals(data("longitude").toSeq.distinct))
-    assert(lat.equals(data("latitude").toSeq.distinct))
-    assert(rgb.equals(data("a").toSeq))
-  }
-  
-  @Test @Ignore
-  def simple_join_all_four_unordered_images {
-    val joined = new ImageTileAggregation()(Seq(image3, image2, image4, image1))
-    val data = joined.toDoubleMap
-    
-    val lon = List(-144.0, -143.0, -142.0)
-    val lat = List(36.0, 37.0, 38.0)
-    val rgb = List(0.0, 1.0, 0.0, 1.0, 4.0, 5.0, 4.0, 5.0, 0.0, 1.0, 0.0, 1.0, 4.0, 5.0, 4.0, 5.0)
-    
-    assert(lon.equals(data("longitude").toSeq.distinct))
-    assert(lat.equals(data("latitude").toSeq.distinct))
-    assert(rgb.equals(data("a").toSeq))
-    
-  }
-  
-  @Test @Ignore
+  @Test
   def seq_unordered {
     val joined = new ImageTileAggregation()(Seq(tile3, tile2, tile4, tile1))
     val data = joined.toDoubleMap
     
-    val explon = List(0,1,2,3)
-    val explat = List(2,3,0,1)
-    val expa = List.range(8,16) ++ List.range(0,8)
+    val explon = List(0,1)
+    val explat = List(0,1)
+    val expa = List.range(1,17)
     
-    assert(explon.equals(data("longitude").toSeq.distinct))
-    assert(explat.equals(data("latitude").toSeq.distinct))
+    assert(explon.equals(data("row").toSeq.distinct))
+    assert(explat.equals(data("col").toSeq.distinct))
     assert(expa.equals(data("a").toSeq))
   }
   
-  
-  
-  lazy val image1 = {
-    val f = (p: (Int, Int)) => Tuple(Real(Metadata("longitude"), p._1), Real(Metadata("latitude"), p._2))
-    val dom = Seq((-144,36), (-143, 36), (-144,37), (-143,37)).map(f)
-    val ran = Seq(0,1,4,5).map(Real(Metadata("a"), _))
-    /*
-     * lower left tile
-     *  4 5
-     *  0 1 
-     */
+  @Test
+  def seq_ordered {
+    val joined = new ImageTileAggregation()(Seq(tile1, tile2, tile3, tile4))
+    //latis.writer.Writer.fromSuffix("asc").write(joined)
+    val data = joined.toDoubleMap
     
-    val ds = Dataset(Function(dom.zip(ran).map(p => Sample(p._1, p._2)),Metadata("ncol" -> "2", "minLon" -> "-144", "minLat" -> "36", "maxLon" -> "-143", "maxLat" -> "37")))
-    //AsciiWriter.write(ds)
-    ds
-  }
-  
-  lazy val image2 = {
-    val f = (p: (Int, Int)) => Tuple(Real(Metadata("longitude"), p._1), Real(Metadata("latitude"), p._2))
-    val dom = Seq((-143,36), (-142, 36), (-143,37), (-142,37)).map(f)
-    val ran = Seq(2,3,6,7).map(Real(Metadata("a"), _))
-    /*
-     * lower left tile
-     *  4 5
-     *  0 1 
-     */
+    val explon = List(0,1)
+    val explat = List(0,1)
+    val expa = List.range(1,17)
     
-    val ds = Dataset(Function(dom.zip(ran).map(p => Sample(p._1, p._2)),Metadata("ncol" -> "2", "minLon" -> "-143", "minLat" -> "36", "maxLon" -> "-142", "maxLat" -> "37")))
-    //AsciiWriter.write(ds)
-    ds
+    assert(explon.equals(data("row").toSeq.distinct))
+    assert(explat.equals(data("col").toSeq.distinct))
+    assert(expa.equals(data("a").toSeq))
   }
-  
-  lazy val image3 = {
-    val f = (p: (Int, Int)) => Tuple(Real(Metadata("longitude"), p._1), Real(Metadata("latitude"), p._2))
-    val dom = Seq((-144,37), (-143, 37), (-144,38), (-143,38)).map(f)
-    val ran = Seq(8,9,12,13).map(Real(Metadata("a"), _))
-    /*
-     * lower left tile
-     *  4 5
-     *  0 1 
-     */
-    
-    val ds = Dataset(Function(dom.zip(ran).map(p => Sample(p._1, p._2)),Metadata("ncol" -> "2", "minLon" -> "-144", "minLat" -> "37", "maxLon" -> "-143", "maxLat" -> "38")))
-    //AsciiWriter.write(ds)
-    ds
-  }
-  
-  lazy val image4 = {
-    val f = (p: (Int, Int)) => Tuple(Real(Metadata("longitude"), p._1), Real(Metadata("latitude"), p._2))
-    val dom = Seq((-143,37), (-142, 37), (-143,38), (-142,38)).map(f)
-    val ran = Seq(10,11,14,15).map(Real(Metadata("a"), _))
-    /*
-     * lower left tile
-     *  4 5
-     *  0 1 
-     */
-    
-    val ds = Dataset(Function(dom.zip(ran).map(p => Sample(p._1, p._2)),Metadata("ncol" -> "2", "minLon" -> "-143", "minLat" -> "37", "maxLon" -> "-142", "maxLat" -> "38")))
-    //AsciiWriter.write(ds)
-    ds
-  }
-  
 
   //---- Tile tests with 2x2 tiles in row,column space. --------------------------------------------------
   /* tile1   tile2
@@ -255,20 +138,7 @@ class TestImageTileAggregation {
     Dataset(Function(domainTuples.zip(rangeValues).map(p => Sample(p._1, p._2)), fmd))
   }
   
-  @Test
-  def seq_ordered {
-    val joined = new ImageTileAggregation()(Seq(tile1, tile2, tile3, tile4))
-    //latis.writer.Writer.fromSuffix("asc").write(joined)
-    val data = joined.toDoubleMap
-    
-    val explon = List(0,1)
-    val explat = List(0,1)
-    val expa = List.range(1,17)
-    
-    assert(explon.equals(data("row").toSeq.distinct))
-    assert(explat.equals(data("col").toSeq.distinct))
-    assert(expa.equals(data("a").toSeq))
-  }
+
     
   //-----------------------------------------------------------------------------
     
