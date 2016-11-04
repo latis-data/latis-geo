@@ -2,6 +2,7 @@ package latis.ops.agg
 
 import latis.dm._
 import latis.metadata.Metadata
+import scala.collection.immutable.TreeMap
 
 /**
  * Combine two georeferenced image datasets. The two datasets must share 
@@ -9,95 +10,82 @@ import latis.metadata.Metadata
  * row major order (grouped by common latitude). 
  */
 class ImageTileAggregation extends TileAggregation() {
-  
-  def getLatLon(s: Sample): (Double, Double) = (s.findVariableByName("latitude"), s.findVariableByName("longitude")) match {
-    case (Some(Number(lat)), Some(Number(lon))) => (lat,lon)
-    case _ => throw new Exception("Sample did not contain variables named 'latitude and 'longitude'.")
-  }
-  
-  /**
-   * Determine whether this is a horizontal or vertical aggregation and 
-   * delegate to respective methods.
-   */
-  override def aggregate(dataset1: Dataset, dataset2: Dataset): Dataset = {
-    val ds1 = dataset1.force
-    val ds2 = dataset2.force
-    
-    val (samples1, samples2) = (ds1, ds2) match {
-      case (Dataset(Function(it1)), Dataset(Function(it2))) => (it1.toSeq, it2.toSeq)
-    }
-    
-    val (lats1, lons1) = samples1.map(getLatLon).unzip
-    val (lats2, lons2) = samples2.map(getLatLon).unzip
-    
-    if(lats1.diff(lats2).isEmpty) aggregateH(ds1, ds2, lons1.distinct.size, lons2.distinct.size)
-    else if(lons1.diff(lons2).isEmpty) aggregateV(ds1, ds2)
-    else throw new IllegalArgumentException("The datasets are not aligned properly for tile aggregation.")
-  }
-  
   /**
    * Reorder the Datasets into row major order. And figure out how many
    * rows there should be.
    */
+  private def minLat(ds: Dataset): Double = {
+    ds match {
+      case Dataset(f: Function) => -1 * f.getMetadata()("minLat").toDouble // negate latitudes in order to sort them from north to south further below
+    }
+  }
+  private def minLon(ds: Dataset): Double = {
+    ds match {
+      case Dataset(f: Function) => f.getMetadata()("minLon").toDouble
+    }
+  }
   private def orderTiles(dss: Seq[Dataset]) = {
-    val sits = dss.collect {case Dataset(Function(it)) => it.toSeq}
-    val (lats, lons) = sits.map(_.map(getLatLon).unzip).unzip
-    
-    val zipped = dss.zip(lons).zip(lats)
-    //group by row
-    val x = zipped.groupBy(p => p._2.distinct)
-    //sort the rows
-    val y = x.toSeq.sortWith((a,b) => a._1.min > b._1.min)
-    //simplify the type
-    val rows = y.map(_._2.map(_._1))
-    val rcount = rows.length
-    
-    //order each row by longitude
-    val k = rows.map(row => row.sortWith((a,b) => a._2.min < b._2.min))
-    //simplify to get ordered datasets
-    (k.flatMap(_.map(_._1)), rcount)
+    val groupsOfLat = dss.groupBy { x => minLat(x) } //group rows, not ordered
+    val groupsOfSortedLat = TreeMap(groupsOfLat.toArray:_*) // create sorted tree of latitudes from north to south
+    val tiles = groupsOfSortedLat.map(f => f._2.sortBy { x => minLon(x) }) //sort by column within latitude row
+    tiles
   }
   
   override def apply(datasets: Seq[Dataset]): Dataset = {
-    val dss = datasets.map(_.force)
-    val (ordered, rowcount) = orderTiles(dss)
-    
-    if (rowcount == 0) Dataset.empty
-    else {
-      val rows = ordered.grouped(dss.size/rowcount)
-      //aggregate within each row
-      val s = rows.map(_.reduceLeft(aggregate(_,_)))
-      //aggregate the rows
-      s.reduceLeft(aggregate(_,_))
-    }
+    val ordered = orderTiles(datasets) //effectively a 2D array: row varying slowest (outer dimension)
+    val s = ordered.map(_.reduceLeft(aggregateH(_,_)))
+    //If we leave the data in the original (row,col) space, we shouldn't need to reverse here.
+    //We can worry about that if/when we transform to a (lon,lat) grid
+    //TODO: order rows here???    Tiles are already ordered by now
+    //aggregate the rows
+    s.reduceLeft(aggregateV(_,_))
   }
   
-  def aggregateH(ds1: Dataset, ds2: Dataset, dim1: Int, dim2: Int): Dataset = {
-    val (it1, it2, f) = (ds1, ds2) match {
-      case (Dataset(f @ Function(it1)), Dataset(Function(it2))) => (it1.grouped(dim1), it2.grouped(dim2), f)
+  def aggregateH(ds1: Dataset, ds2: Dataset): Dataset = {
+    //assumes ds1 is positioned to the left of ds2
+    val (it1, it2, f1, f2) = (ds1, ds2) match {
+      case (Dataset(f1 @ Function(it1)), Dataset(f2 @ Function(it2))) => {
+        val ncol = f1.getMetadata()("ncol").toInt
+        val ncol2 = f2.getMetadata()("ncol").toInt
+          (it1.grouped(ncol), it2.grouped(ncol2), f1, f2) //TODO: shouldn't assume both have same ncol, e.g. tiling 3rd to the 1st 2
+        }
     }
     
-    val md = f.getMetadata("epsg") match {
+    val md = f1.getMetadata("epsg") match {
       case Some(code) => Metadata(Map("epsg" -> code))
       case None => Metadata.empty
     }
-    val it = it1.zip(it2).flatMap(p => p._1 ++ p._2).buffered
-    
-    Dataset(Function(it.head.domain, it.head.range, it, md))
+    val it = it1.zip(it2).flatMap(p => p._1 ++ p._2).buffered //append pairs of rows    
+    val ncol1 = f1.getMetadata()("ncol").toInt
+    val nrow1 = f1.getMetadata()("nrow").toInt
+    val ncol2 = f2.getMetadata()("ncol").toInt
+    val nrow2 = f2.getMetadata()("nrow").toInt
+    //how much work is being done here? presumably the is not iterating yet
+    // update nrow, ncol metadata
+    val sizeMD = Metadata("nrow" -> nrow1.toString, "ncol" -> (ncol1+ncol2).toString)
+    //TODO: update length metadata
+    Dataset(Function(it.head.domain, it.head.range, it, sizeMD ++ md))
   }
   
   def aggregateV(ds1: Dataset, ds2: Dataset): Dataset = {
-    val (it1, it2, f) = (ds1, ds2) match {
-      case (Dataset(f @ Function(it1)), Dataset(Function(it2))) => (it1, it2, f)
+    //assumes ds1 should be positioned above ds2 
+    val (it1, it2, f1, f2) = (ds1, ds2) match {
+      case (Dataset(f1 @ Function(it1)), Dataset(f2 @ Function(it2))) => (it1, it2, f1,f2)
     }
     
-    val md = f.getMetadata("epsg") match {
+    val md = f1.getMetadata("epsg") match {
       case Some(code) => Metadata(Map("epsg" -> code))
       case None => Metadata.empty
     }
     val it = (it1 ++ it2).buffered
-    
-    Dataset(Function(it.head.domain, it.head.range, it, md))
+    val ncol1 = f1.getMetadata()("ncol").toInt
+    val nrow1 = f1.getMetadata()("nrow").toInt
+    val ncol2 = f2.getMetadata()("ncol").toInt
+    val nrow2 = f2.getMetadata()("nrow").toInt
+    // update nrow, ncol and length metadata
+    val sizeMD = Metadata("nrow" -> (nrow1+nrow2).toString, "ncol" -> ncol1.toString())
+    //TODO: update length metadata
+    Dataset(Function(it.head.domain, it.head.range, it, sizeMD ++ md))
   }
   
 }
