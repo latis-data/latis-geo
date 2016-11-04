@@ -10,37 +10,6 @@ import scala.collection.immutable.TreeMap
  * row major order (grouped by common latitude). 
  */
 class ImageTileAggregation extends TileAggregation() {
-  /*
-  def getLatLon(s: Sample): (Double, Double) = (s.findVariableByName("latitude"), s.findVariableByName("longitude")) match {
-    case (Some(Number(lat)), Some(Number(lon))) => (lat,lon)
-    case _ => throw new Exception("Sample did not contain variables named 'latitude and 'longitude'.")
-  }
- *  
- */
-  
-  /**
-   * Determine whether this is a horizontal or vertical aggregation and 
-   * delegate to respective methods.
-   *
-  override def aggregate(dataset1: Dataset, dataset2: Dataset): Dataset = {
-    //TODO: do we ever use this interface? or do we always throw a Seq of tiles to apply?
-    val ds1 = dataset1.force
-    val ds2 = dataset2.force
-    
-    val (func1, func2, samples1, samples2) = (ds1, ds2) match {
-      case (Dataset(f1 @ Function(it1)), Dataset(f2 @ Function(it2))) => (f1, f2, it1.toSeq, it2.toSeq)
-    }
-    
-    val metadata1 = func1.getMetadata
-    val metadata2 = func2.getMetadata
-    
-    if(metadata1("minLat") == metadata2("minLat") && metadata1("maxLat") == metadata2("maxLat")) aggregateH(ds1, ds2)
-    else if(metadata1("minLon") == metadata2("minLon") && metadata1("maxLon") == metadata2("maxLon")) aggregateV(ds1, ds2)
-    else throw new IllegalArgumentException("The datasets are not aligned properly for tile aggregation.")
-  }
-  * 
-  */
-  
   /**
    * Reorder the Datasets into row major order. And figure out how many
    * rows there should be.
