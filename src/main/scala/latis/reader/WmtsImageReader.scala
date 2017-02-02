@@ -9,6 +9,7 @@ import com.typesafe.scalalogging.LazyLogging
 import latis.time.Time
 import latis.ops.agg.ImageTileAggregation
 import latis.util.LatisProperties
+import latis.metadata.Metadata
 
 /**
  * Create a geo-referenced image dataset for WMTS tiles.
@@ -81,7 +82,8 @@ class WmtsImageReader extends DatasetAccessor with LazyLogging {
         val tiles = it2.toSeq.map(smp => smp match {
           case Sample(_, tile: Tuple) => tileToGeoImage(tile)
         })
-        ImageTileAggregation()(tiles)
+        val aggtiles = ImageTileAggregation()(tiles)
+        aggtiles
       }
     }
   }
@@ -108,11 +110,16 @@ class WmtsImageReader extends DatasetAccessor with LazyLogging {
     try {
       imageReader = ImageReader(url)
       val imageds = imageReader.getDataset()
-      dataset = RowColToLonLat(minLon, maxLon, minLat, maxLat)(imageds)
+      val (imageFunc,imageFuncIt) = imageds match {
+        case Dataset(f @ Function(it)) => (f,it)
+      }
+      
+      val newImageFunc = Function(imageFunc.getDomain, imageFunc.getRange, imageFuncIt, imageFunc.getMetadata ++ Metadata("minLon" -> minLon.toString, "minLat" -> minLat.toString, "maxLon" -> maxLon.toString, "maxLat" -> maxLat.toString))
+      val ds = Dataset(newImageFunc)
+      dataset = RowColToLonLat(minLon, maxLon, minLat, maxLat)(ds)
     } catch {
       case e: Exception => logger.warn("Failed to read image: " + url, e)
     }
-    
     dataset
   }
   

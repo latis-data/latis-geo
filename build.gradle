@@ -1,7 +1,7 @@
 buildscript {
     repositories {
         ivy {
-            url 'http://dsweb:8080/ivy'
+            url 'http://dsweb.lasp.colorado.edu/ivy'
         }
     jcenter()
     }
@@ -23,7 +23,7 @@ lasp.utils.enableIncrementalCompilation(project)
 
 repositories {
     ivy {
-        url "http://dsweb:8080/ivy"
+        url "http://dsweb.lasp.colorado.edu/ivy"
     }
     maven {
       url "http://download.osgeo.org/webdav/geotools/"
@@ -40,7 +40,7 @@ dependencies {
             compile project(":latis")
         }
         prod {
-            compile 'lasp:latis:2.22.0'
+            compile 'lasp:latis:2.31.0'
         }
     }
 
